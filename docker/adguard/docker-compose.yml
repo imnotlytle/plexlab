@@ -1,0 +1,19 @@
+# AdGuard Home — network-wide DNS ad/tracker blocking, hosted on the NAS.
+# DNS is published ONLY on the NAS LAN IP (192.168.68.56) so it doesn't collide with the
+# local 127.0.0.1:53 resolver already on the box. Admin UI on :3000.
+#
+# After this is up: browse http://192.168.68.56:3000 to run the first-time setup wizard
+# (set the Admin Web Interface port to 3000, DNS on all interfaces / port 53).
+
+services:
+  adguardhome:
+    image: adguard/adguardhome:latest
+    container_name: adguardhome
+    restart: unless-stopped
+    volumes:
+      - /volume1/docker/adguardhome/work:/opt/adguardhome/work
+      - /volume1/docker/adguardhome/conf:/opt/adguardhome/conf
+    ports:
+      - "192.168.68.56:53:53/tcp"    # DNS (LAN IP only — avoids the 127.0.0.1:53 resolver)
+      - "192.168.68.56:53:53/udp"
+      - "3000:3000/tcp"              # setup wizard + admin UI
