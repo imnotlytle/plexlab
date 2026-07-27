@@ -101,6 +101,17 @@ Note: Overseerr is **already running** (`DefiantJazz`) — Phase 2 is adopt/veri
 - **LOCAL backup only** (same pool) — protects against config corruption / bad upgrades / deletes,
   NOT total pool loss. TODO for Pat: add an offsite/external copy of `/volume1/docker/_backups`.
 
+### AdGuard Home — network-wide DNS ad-blocking (2026-07-27)
+- Can't run on the TP-Link Deco (locked firmware). Deployed on the NAS instead:
+  `docker/adguard/docker-compose.yml` → `/volume1/docker/adguard`. DNS published on the LAN
+  IP only (`192.168.68.56:53`) to avoid the 127.0.0.1:53 stub; admin UI on `:3000`.
+- Deco: set the **DHCP Server** DNS to `192.168.68.56` (per-client, so AdGuard sees each device).
+- Fixed post-cutover flakiness: default upstream was Quad9-DoH ONLY and was failing
+  (`unexpected EOF`). Changed upstreams to Cloudflare + Google DoH, added 1.1.1.1/8.8.8.8
+  fallback, set `ratelimit: 0`. Verified: 5 client devices querying, ~31% of queries blocked.
+- TODO for Pat: reserve the NAS IP (`192.168.68.56`) in the Deco app so DNS never breaks; optionally
+  add stronger blocklists (default misses e.g. googleadservices).
+
 ## Decisions log
 
 - 2026-07-27: Chose gluetun kill-switch pattern over router-level isolation (consumer router can't VLAN).
