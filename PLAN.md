@@ -132,6 +132,14 @@ Note: Overseerr is **already running** (`DefiantJazz`) — Phase 2 is adopt/veri
   it hard. Proper fix = separate Radarr4K instance + separate `/Movies4K` Plex library shared only
   with 4K-capable users. Offered as a follow-up.
 
+### Tautulli (2026-07-27)
+- Plex monitoring/stats at `http://192.168.68.56:8181` (`docker/tautulli`, config `/volume1/Config/Tautulli`).
+- Pre-connected to Plex by seeding config.ini — NOTE: PMS keys (pms_ip/pms_token/pms_identifier/…)
+  live under the **`[PMS]`** section, NOT `[General]` (first_run_complete goes under `[General]`).
+  Used the owner PlexOnlineToken + machineIdentifier 8f83ec44…
+- Wizard skipped, so no Tautulli web login is set — open on the LAN (fine like the *arr apps;
+  add one in Settings > Web Interface if desired). Read-only against Plex; safe.
+
 ## Decisions log
 
 - 2026-07-27: Chose gluetun kill-switch pattern over router-level isolation (consumer router can't VLAN).

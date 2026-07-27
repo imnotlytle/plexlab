@@ -1,0 +1,16 @@
+# Tautulli — Plex monitoring & statistics (watch history, active streams, bandwidth).
+# Read-only against Plex; does not modify media or the Plex server.
+
+services:
+  tautulli:
+    image: linuxserver/tautulli:latest
+    container_name: tautulli
+    restart: unless-stopped
+    environment:
+      - PUID=1000
+      - PGID=10
+      - TZ=America/Chicago
+    volumes:
+      - /volume1/Config/Tautulli:/config
+    ports:
+      - "8181:8181"    # web UI
