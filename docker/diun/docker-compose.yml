@@ -1,6 +1,8 @@
-# Diun — watches all running containers and notifies when a newer image is available,
+# Diun — watches all running containers and emails when a newer image is available,
 # so you patch on YOUR schedule (it does NOT auto-update). Tiny footprint.
-# Notification channel is added later once picked (see DIUN_NOTIF_* docs).
+#
+# Email uses Gmail SMTP. The app password is the ONLY secret — it lives in .env
+# (gitignored) next to this file on the NAS. See .env.example.
 
 services:
   diun:
@@ -15,6 +17,14 @@ services:
       - DIUN_PROVIDERS_DOCKER=true
       - DIUN_PROVIDERS_DOCKER_WATCHBYDEFAULT=true  # watch every running container
       - LOG_LEVEL=info
+      # --- email notifications (Gmail SMTP) ---
+      - DIUN_NOTIF_MAIL_HOST=smtp.gmail.com
+      - DIUN_NOTIF_MAIL_PORT=587
+      - DIUN_NOTIF_MAIL_SSL=false                  # STARTTLS on 587
+      - DIUN_NOTIF_MAIL_USERNAME=p.lytle43@gmail.com
+      - DIUN_NOTIF_MAIL_PASSWORD=${DIUN_MAIL_APP_PASSWORD}   # from .env (gitignored)
+      - DIUN_NOTIF_MAIL_FROM=p.lytle43@gmail.com
+      - DIUN_NOTIF_MAIL_TO=p.lytle43@gmail.com
     volumes:
       - /volume1/docker/diun/data:/data
       - /var/run/docker.sock:/var/run/docker.sock:ro   # read-only: just reads image tags
