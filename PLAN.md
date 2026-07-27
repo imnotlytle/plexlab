@@ -40,6 +40,18 @@ Note: Overseerr is **already running** (`DefiantJazz`) — Phase 2 is adopt/veri
   download clients from the old `192.168.68.53:8080` PC to the NAS client at `127.0.0.1:8080`
   (all three connection-tested OK). qBittorrent WebUI username = `admin`.
 
+### Overseerr fix (2026-07-27)
+- Overseerr (`DefiantJazz`) was running but its Plex scan failed every 5 min. Two causes:
+  1. Plex reached via a `plex.direct` hostname → intermittent DNS (`EAI_AGAIN`). Fixed by
+     setting `plex.ip=192.168.68.56`, `port=32400`, `useSsl=false` (same-box, direct IP).
+  2. Stale Plex auth token → scan got "Permission denied". Overseerr's scanner reads the
+     **admin user's** `plexToken` (db `user` id=1), not `settings.plex.authToken`. Copied the
+     valid owner token from Plex `Preferences.xml` (`PlexOnlineToken`) into both. Scan now completes.
+- Sonarr/Radarr (incl. intentional 4K duplicates for 4K vs non-4K users) all connection-test OK.
+- Backups made: `settings.json.bak.*` and `db.sqlite3.bak.*` in the Overseerr config dir.
+- Minor leftover: other Overseerr users' Plex tokens (id 2-7) are also stale (401) — only affects
+  their per-user watchlist sync; they'll refresh on next Plex login. Not blocking.
+
 ## Decisions log
 
 - 2026-07-27: Chose gluetun kill-switch pattern over router-level isolation (consumer router can't VLAN).
