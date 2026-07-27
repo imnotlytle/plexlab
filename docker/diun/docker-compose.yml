@@ -1,0 +1,20 @@
+# Diun — watches all running containers and notifies when a newer image is available,
+# so you patch on YOUR schedule (it does NOT auto-update). Tiny footprint.
+# Notification channel is added later once picked (see DIUN_NOTIF_* docs).
+
+services:
+  diun:
+    image: crazymax/diun:latest
+    container_name: diun
+    command: serve
+    restart: unless-stopped
+    environment:
+      - TZ=America/Chicago
+      - DIUN_WATCH_SCHEDULE=0 8 * * *              # check daily at 8:00 AM
+      - DIUN_WATCH_JITTER=30s
+      - DIUN_PROVIDERS_DOCKER=true
+      - DIUN_PROVIDERS_DOCKER_WATCHBYDEFAULT=true  # watch every running container
+      - LOG_LEVEL=info
+    volumes:
+      - /volume1/docker/diun/data:/data
+      - /var/run/docker.sock:/var/run/docker.sock:ro   # read-only: just reads image tags
