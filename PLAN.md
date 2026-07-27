@@ -22,12 +22,15 @@ media network (separate):  Plex  +  Overseerr
 
 ## Roadmap
 
-- [ ] **Phase 0 — Access setup:** enable SSH, create this project, connect
-- [ ] **Phase 1 — Inventory & cleanup:** audit current Plex + Docker, document the mess
-- [ ] **Phase 2 — Media stack:** clean docker-compose for Plex + Overseerr
-- [ ] **Phase 3 — VPN download stack:** gluetun (PIA) + qBittorrent with kill-switch
-- [ ] **Phase 4 — Isolation & hardening:** separate networks, drop caps, minimal ports
-- [ ] **Phase 5 — Backup & maintenance:** config backups + update strategy
+- [x] **Phase 0 — Access setup:** SSH enabled, key auth working, project created
+- [x] **Phase 1 — Inventory:** done → see `notes/inventory.md`
+- [ ] **Phase 3 — VPN download stack (PROMOTED TO FIRST — qBittorrent is leaking real IP):**
+      gluetun (PIA WireGuard) + qBittorrent with kill-switch
+- [ ] **Phase 2 — Media stack:** adopt Plex + Overseerr (already installed) into clean compose
+- [ ] **Phase 4 — Isolation & hardening:** move host-mode services to bridge nets, minimal ports
+- [ ] **Phase 5 — Cleanup & maintenance:** remove dead pia-qbitt-git networks, backups, updates
+
+Note: Overseerr is **already running** (`DefiantJazz`) — Phase 2 is adopt/verify, not install.
 
 ## Decisions log
 
