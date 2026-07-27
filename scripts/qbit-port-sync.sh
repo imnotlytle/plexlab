@@ -1,9 +1,11 @@
 #!/bin/sh
-# Keep qBittorrent's listening port matched to PIA's forwarded port (from gluetun).
+# Keep qBittorrent's listening port matched to PIA's forwarded port.
 # PIA's forwarded port can change on VPN reconnect; a mismatch cripples incoming peers.
+# Reads the port from thrnz/docker-wireguard-pia's shared file (falls back to gluetun's).
 # Run every few minutes via cron.
 
-PORT=$(docker exec gluetun cat /tmp/gluetun/forwarded_port 2>/dev/null)
+PORT=$(cat /volume1/docker/wireguard-pia/shared/port.dat 2>/dev/null)
+[ -z "$PORT" ] && PORT=$(docker exec gluetun cat /tmp/gluetun/forwarded_port 2>/dev/null)   # gluetun fallback
 case "$PORT" in ''|*[!0-9]*) exit 0 ;; esac   # no valid port yet
 
 cj=$(mktemp)
