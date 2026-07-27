@@ -1,0 +1,23 @@
+# Secrets — never commit these
+.env
+*.env
+!*.env.example
+secrets/
+*.key
+*.pem
+id_ed25519
+id_ed25519.pub
+id_rsa
+authorized_keys
+wg*.conf
+*.ovpn
+
+# qBittorrent / app runtime data (should live on the NAS, not in git)
+config/
+downloads/
+appdata/
+
+# OS junk
+.DS_Store
+Thumbs.db
+desktop.ini
