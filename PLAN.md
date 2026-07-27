@@ -116,9 +116,11 @@ Note: Overseerr is **already running** (`DefiantJazz`) — Phase 2 is adopt/veri
 - **qBittorrent speed:** listen_port was 6881 but PIA forwards 32309 → no incoming peers. Set to
   match; `scripts/qbit-port-sync.sh` (cron every 5 min) keeps qBit's port synced to gluetun's
   forwarded port across VPN reconnects. Rate limits already unlimited.
-- **Auto-clean temp:** enabled Completed Download Handling + Remove Completed in Radarr & Sonarr
-  (removes torrent + temp files after import). No seeding (fine for public indexers). Readarr API
-  rejected the call — TODO if needed.
+- **Auto-clean temp:** enabled Completed Download Handling + Remove Completed in Radarr & Sonarr.
+  IMPORTANT: this only cleans up once qBittorrent finishes SEEDING — so a seed limit is required
+  or torrents seed forever and nothing is removed. Set qBittorrent seed limit to ratio 1.0 OR
+  3 days (4320 min), action=pause (`max_ratio_act=0`); *arr then removes torrent + temp files.
+  Readarr API rejected the remove-completed call — TODO if needed.
 - **1080p tier (Overseerr standard requests, profile id 4):** was preferring ~11 GB files
   (preferred 95 MB/min) + Remux allowed. Retuned quality definitions to prefer small/good
   (1080p ~22 MB/min pref, ~45 max; 720p ~12/25); removed Remux-1080p from Radarr profile.
