@@ -112,6 +112,26 @@ Note: Overseerr is **already running** (`DefiantJazz`) — Phase 2 is adopt/veri
 - TODO for Pat: reserve the NAS IP (`192.168.68.56`) in the Deco app so DNS never breaks; optionally
   add stronger blocklists (default misses e.g. googleadservices).
 
+### Download optimization (2026-07-27)
+- **qBittorrent speed:** listen_port was 6881 but PIA forwards 32309 → no incoming peers. Set to
+  match; `scripts/qbit-port-sync.sh` (cron every 5 min) keeps qBit's port synced to gluetun's
+  forwarded port across VPN reconnects. Rate limits already unlimited.
+- **Auto-clean temp:** enabled Completed Download Handling + Remove Completed in Radarr & Sonarr
+  (removes torrent + temp files after import). No seeding (fine for public indexers). Readarr API
+  rejected the call — TODO if needed.
+- **1080p tier (Overseerr standard requests, profile id 4):** was preferring ~11 GB files
+  (preferred 95 MB/min) + Remux allowed. Retuned quality definitions to prefer small/good
+  (1080p ~22 MB/min pref, ~45 max; 720p ~12/25); removed Remux-1080p from Radarr profile.
+  Kept x264 (NOT HEVC) — device audit showed heavy browser use (Chrome/Edge/Firefox can't
+  play HEVC → would force transcode on a shared 8-user server).
+- **4K tier (profile id 5):** Pat watches on an LG C5 (DV/Atmos capable). Created custom formats
+  Dolby Vision (+1500), HDR10Plus (+300), Atmos (+200); demoted YTS 2160p (−200). 2160p sizes
+  uncapped (DV files are big). Falls back to non-DV if unavailable.
+- **KNOWN LIMITATION:** single Radarr + single `/Movies` Plex library for both tiers. A movie is
+  either 1080p OR 4K (not both), and 4K DV is visible to all users → browser users would transcode
+  it hard. Proper fix = separate Radarr4K instance + separate `/Movies4K` Plex library shared only
+  with 4K-capable users. Offered as a follow-up.
+
 ## Decisions log
 
 - 2026-07-27: Chose gluetun kill-switch pattern over router-level isolation (consumer router can't VLAN).
