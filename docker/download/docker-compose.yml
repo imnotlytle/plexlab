@@ -20,8 +20,8 @@ services:
       - "6881:6881/udp"
     environment:
       - VPN_SERVICE_PROVIDER=private internet access
-      - VPN_TYPE=wireguard
-      - OPENVPN_USER=${PIA_USER}       # PIA login (used to generate WireGuard creds)
+      - VPN_TYPE=openvpn               # PIA via OpenVPN (this gluetun build lacks PIA WireGuard)
+      - OPENVPN_USER=${PIA_USER}       # PIA login
       - OPENVPN_PASSWORD=${PIA_PASS}
       - SERVER_REGIONS=${PIA_REGION}
       - VPN_PORT_FORWARDING=on         # PIA port forwarding (NOT available on US regions)

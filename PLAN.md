@@ -24,8 +24,10 @@ media network (separate):  Plex  +  Overseerr
 
 - [x] **Phase 0 — Access setup:** SSH enabled, key auth working, project created
 - [x] **Phase 1 — Inventory:** done → see `notes/inventory.md`
-- [ ] **Phase 3 — VPN download stack (PROMOTED TO FIRST — qBittorrent is leaking real IP):**
-      gluetun (PIA WireGuard) + qBittorrent with kill-switch
+- [x] **Phase 3 — VPN download stack — DONE 2026-07-27:** gluetun (PIA **OpenVPN**, Toronto,
+      port forwarding on) + qBittorrent via `network_mode: service:gluetun`. Kill-switch
+      verified (exit IP = PIA, and zero connectivity when tunnel dropped). Old leaky
+      `QbittorrentAmazon` stopped + auto-restart disabled. Stack: `/volume1/docker/vpn-qbittorrent`
 - [ ] **Phase 2 — Media stack:** adopt Plex + Overseerr (already installed) into clean compose
 - [ ] **Phase 4 — Isolation & hardening:** move host-mode services to bridge nets, minimal ports
 - [ ] **Phase 5 — Cleanup & maintenance:** remove dead pia-qbitt-git networks, backups, updates
