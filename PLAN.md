@@ -69,6 +69,17 @@ Note: Overseerr is **already running** (`DefiantJazz`) — Phase 2 is adopt/veri
 - Optional future hardening: put Cloudflare Access in front of the two hostnames — but note it can
   interfere with the Overseerr/Audiobookshelf mobile apps, so weigh that before enabling.
 
+### Isolation pass (2026-07-27)
+- Consumer router = no VLANs, so deep network isolation isn't available. Decided NOT to
+  re-architect the working host-mode *arr/Plex stack into bridge networks (marginal security
+  gain, real breakage risk). The high-value isolation (torrent stack behind VPN) was already done.
+- **Removed FlareSolverr** — it was running unused (empty Prowlarr IndexerProxies table) and
+  exposed an unauthenticated headless browser on the LAN (:8191). Container removed, 8191 closed.
+  Re-add recipe saved at `docker/optional/flaresolverr.yml`.
+- Noted but NOT changed (user opted out): Radarr auth = `DisabledForLocalAddresses` (open on LAN).
+  Sonarr/Prowlarr/Readarr require login.
+- Future real isolation lever = a VLAN-capable router (hardware upgrade).
+
 ## Decisions log
 
 - 2026-07-27: Chose gluetun kill-switch pattern over router-level isolation (consumer router can't VLAN).
