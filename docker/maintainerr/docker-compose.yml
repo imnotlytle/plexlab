@@ -1,0 +1,15 @@
+# Maintainerr — rule-based media cleanup. Builds "collections" of media matching rules
+# (e.g. large + unwatched) shown in Plex as "Leaving Soon", then deletes after a grace
+# period via Radarr/Sonarr/Overseerr. Pulls watch data from Plex + Tautulli.
+
+services:
+  maintainerr:
+    image: ghcr.io/jorenn92/maintainerr:latest
+    container_name: maintainerr
+    restart: unless-stopped
+    environment:
+      - TZ=America/Chicago
+    volumes:
+      - /volume1/Config/Maintainerr:/opt/data
+    ports:
+      - "6246:6246"    # web UI
