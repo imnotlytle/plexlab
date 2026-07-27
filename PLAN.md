@@ -52,6 +52,23 @@ Note: Overseerr is **already running** (`DefiantJazz`) — Phase 2 is adopt/veri
 - Minor leftover: other Overseerr users' Plex tokens (id 2-7) are also stale (401) — only affects
   their per-user watchlist sync; they'll refresh on next Plex login. Not blocking.
 
+### Cloudflare tunnel audit + migration (2026-07-27)
+- Domain: **patplex.net**. Two tunnels exist:
+  - **Overseerr** (`d22066e0`) — public routes: `overseerr.patplex.net`→NAS:5055,
+    `abs.patplex.net`→NAS:13378 (Audiobookshelf), catch-all 404. Connector WAS running on
+    the `.53` PC (not the NAS) — a fragility since `.53` is being retired.
+  - **atm-9** (`cb5836b2`) — Minecraft; NO public/CIDR routes; connector runs on the NAS.
+- Security verdict: only Overseerr + Audiobookshelf are internet-exposed (both have their own
+  logins, meant to be public). Sonarr/Radarr/Prowlarr/qBittorrent/Plex are NOT exposed. Good.
+- **Migration done:** stood up `cloudflared-media` on the NAS (`/volume1/docker/tunnel`) as a
+  2nd connector on the Overseerr tunnel (HA, zero downtime). Verified both public URLs return
+  200 served via the NAS. → **`.53` can now be retired.**
+- Cleanup: moved the dead-tunnel compose (`/volume1/docker/cloudflare`, referenced nonexistent
+  tunnel `b7d636ff`) to `_disabled_cloudflare_deadtunnel_*`. Updated both cloudflared images to latest.
+- Tunnel token stored only in gitignored `.env` on the NAS (chmod 600).
+- Optional future hardening: put Cloudflare Access in front of the two hostnames — but note it can
+  interfere with the Overseerr/Audiobookshelf mobile apps, so weigh that before enabling.
+
 ## Decisions log
 
 - 2026-07-27: Chose gluetun kill-switch pattern over router-level isolation (consumer router can't VLAN).

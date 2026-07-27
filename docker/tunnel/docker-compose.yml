@@ -1,0 +1,18 @@
+# Runs the "Overseerr" Cloudflare tunnel (d22066e0-…) FROM THE NAS, so the public
+# links (overseerr.patplex.net, abs.patplex.net) no longer depend on the .53 PC.
+#
+# This registers a SECOND connector on the existing tunnel (Cloudflare supports
+# multiple connectors per tunnel = high availability), so bringing it up causes
+# NO downtime. Once it's healthy, the .53 machine can be retired.
+#
+# The tunnel token is a credential — it lives only in a gitignored .env on the NAS,
+# never in git. cloudflared reads it from the TUNNEL_TOKEN env var.
+
+services:
+  cloudflared-media:
+    image: cloudflare/cloudflared:latest
+    container_name: cloudflared-media
+    restart: unless-stopped
+    command: tunnel --no-autoupdate run
+    environment:
+      - TUNNEL_TOKEN=${CF_TUNNEL_TOKEN}
