@@ -91,6 +91,16 @@ Note: Overseerr is **already running** (`DefiantJazz`) — Phase 2 is adopt/veri
   imported to `/volume1/Media/Movies/...`, hasFile=true, and now shows in Plex. Applies to all
   future downloads.
 
+### Config backups (2026-07-27)
+- Script `scripts/backup-configs.sh` → deployed to `/volume1/docker/scripts/backup-configs.sh`.
+  Snapshots `/volume1/Config` + `/volume1/docker` to `/volume1/docker/_backups/config/`
+  (excludes re-downloadable caches + `#recycle`; keeps last 14). First run = ~1.5 GB.
+- Scheduling: user's crontab spool is root-only, so scheduled via a root `/etc/cron.d` entry
+  (one sudo command). Daily 04:15, logs to `/volume1/docker/_backups/backup.log`.
+- Archive contains `.env` secrets (PIA, Cloudflare token) — fine locally; treat as sensitive if copied off-box.
+- **LOCAL backup only** (same pool) — protects against config corruption / bad upgrades / deletes,
+  NOT total pool loss. TODO for Pat: add an offsite/external copy of `/volume1/docker/_backups`.
+
 ## Decisions log
 
 - 2026-07-27: Chose gluetun kill-switch pattern over router-level isolation (consumer router can't VLAN).
