@@ -34,6 +34,12 @@ media network (separate):  Plex  +  Overseerr
 
 Note: Overseerr is **already running** (`DefiantJazz`) — Phase 2 is adopt/verify, not install.
 
+## Changes log
+
+- 2026-07-27: Set qBittorrent WebUI password (user `admin`). Repointed Sonarr/Radarr/Prowlarr
+  download clients from the old `192.168.68.53:8080` PC to the NAS client at `127.0.0.1:8080`
+  (all three connection-tested OK). qBittorrent WebUI username = `admin`.
+
 ## Decisions log
 
 - 2026-07-27: Chose gluetun kill-switch pattern over router-level isolation (consumer router can't VLAN).
