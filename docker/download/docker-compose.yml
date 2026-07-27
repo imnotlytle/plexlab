@@ -46,6 +46,6 @@ services:
       - WEBUI_PORT=8080
     volumes:
       - /volume1/Config/qbittorrent:/config   # existing config — torrents & settings carry over
-      - /volume1/Media/temp:/downloads
+      - /volume1/Media/temp/downloads:/downloads   # MUST match the *arr apps' /downloads mount so imports work
     restart: unless-stopped
     # No 'ports:' here on purpose — ports are published on gluetun above.

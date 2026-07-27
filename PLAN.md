@@ -80,6 +80,17 @@ Note: Overseerr is **already running** (`DefiantJazz`) — Phase 2 is adopt/veri
   Sonarr/Prowlarr/Readarr require login.
 - Future real isolation lever = a VLAN-capable router (hardware upgrade).
 
+### Housekeeping + import-pipeline fix (2026-07-27)
+- Removed inert `QbittorrentAmazon` container and the 3 dead `pia-qbitt-git` networks.
+- **Fixed broken imports** (Plex wasn't seeing new downloads). Root cause: qBittorrent mounted
+  `/volume1/Media/temp:/downloads` but the *arr apps mount `/volume1/Media/temp/downloads:/downloads`
+  — two different host folders, so Radarr looked where the file wasn't (and couldn't even see it).
+  Fix: changed qBittorrent's mount to `/volume1/Media/temp/downloads:/downloads` to match the *arr
+  apps; moved the stuck file into that folder; rechecked the torrent (still seeding); deleted the
+  stale `.53`/UNC remote path mappings from Radarr + Sonarr. Verified: "The Debt Collector (2026)"
+  imported to `/volume1/Media/Movies/...`, hasFile=true, and now shows in Plex. Applies to all
+  future downloads.
+
 ## Decisions log
 
 - 2026-07-27: Chose gluetun kill-switch pattern over router-level isolation (consumer router can't VLAN).
