@@ -1,5 +1,9 @@
-# TEST: PIA via WireGuard (thrnz) — clean benchmark vs OpenVPN. Region: ca_montreal (same as
-# the OpenVPN test) for an apples-to-apples WireGuard-vs-OpenVPN comparison on the same PIA.
+# VPN-protected download stack — PIA via WireGuard (thrnz/docker-wireguard-pia).
+# WireGuard is ~9x faster than OpenVPN on this N100 (measured 127 vs 14 Mbps on the same
+# well-seeded torrent), because it drops OpenVPN's CPU-heavy crypto. gluetun can't do PIA
+# over WireGuard, hence this dedicated container. Kill-switch + port forwarding verified.
+# qBittorrent shares this container's netns (no VPN = no traffic). Secrets in gitignored .env.
+# Region set via LOC below (thrnz uses PIA codes like ca_toronto, NOT gluetun's "CA Toronto").
 services:
   wireguard-pia:
     image: thrnz/docker-wireguard-pia:latest

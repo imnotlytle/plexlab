@@ -142,6 +142,21 @@ Note: Overseerr is **already running** (`DefiantJazz`) — Phase 2 is adopt/veri
 - Wizard skipped, so no Tautulli web login is set — open on the LAN (fine like the *arr apps;
   add one in Settings > Web Interface if desired). Read-only against Plex; safe.
 
+### VPN speed fix — switched PIA to WireGuard (2026-07-27)
+- Symptom: downloads slow. Root cause chain (diagnosed the hard way): NAS internet is fine
+  (954 Mbps direct); the bottleneck was **PIA-over-OpenVPN on the N100** (~14 Mbps ceiling,
+  55% CPU on OpenVPN crypto). gluetun can ONLY do PIA via OpenVPN.
+- Fix: run PIA over **WireGuard** via `thrnz/docker-wireguard-pia` (kernel WG). Benchmarked on
+  the SAME well-seeded Ubuntu torrent: **OpenVPN 14 Mbps vs WireGuard 127 Mbps (~9x)**, VPN CPU
+  ~0.5%. qBittorrent CPU (hashing/disk) becomes the limiter ~127 Mbps — near the NAS ceiling,
+  matches Pat's old PC speed. Kill-switch + port forwarding verified. No need to switch providers.
+- Config: `docker/download/docker-compose.yml` (wireguard-pia + qbittorrent), LOC=ca_toronto.
+  Port-sync script reads `/volume1/docker/wireguard-pia/shared/port.dat` (gluetun fallback kept).
+- LESSON: measure VPN speed with a WELL-SEEDED torrent (force-started past the queue) + compare
+  direct-vs-tunnel. Single-stream HTTP tests and dead torrents gave misleading numbers for hours.
+- Also fixed along the way: `max_active_downloads` had been lowered to 5 (stranded good torrents
+  behind dead ones) → raised to 15/25.
+
 ## Decisions log
 
 - 2026-07-27: Chose gluetun kill-switch pattern over router-level isolation (consumer router can't VLAN).
