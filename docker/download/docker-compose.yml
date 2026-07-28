@@ -1,43 +1,41 @@
-# VPN-protected download stack — PIA via gluetun (OpenVPN).
-# NOTE: gluetun's PIA integration is OpenVPN-only. OpenVPN is CPU-heavy on the N100 (~9 MB/s
-# ceiling), but it's reliable. A WireGuard experiment via thrnz/docker-wireguard-pia tested
-# WORSE on this connection (raw throughput ~0.1 MB/s despite 0% CPU) — parked for later tuning.
-#
-# qBittorrent shares gluetun's network namespace = kill-switch (no VPN, no traffic).
-# Secrets come from the gitignored .env.
-
+# TEST: PIA via WireGuard (thrnz) — clean benchmark vs OpenVPN. Region: ca_montreal (same as
+# the OpenVPN test) for an apples-to-apples WireGuard-vs-OpenVPN comparison on the same PIA.
 services:
-  gluetun:
-    image: qmcgaw/gluetun:latest
-    container_name: gluetun
+  wireguard-pia:
+    image: thrnz/docker-wireguard-pia:latest
+    container_name: wireguard-pia
     cap_add:
       - NET_ADMIN
     devices:
       - /dev/net/tun:/dev/net/tun
-    ports:
-      - "8080:8080"       # qBittorrent WebUI
-      - "6881:6881/tcp"   # qBittorrent BitTorrent port
-      - "6881:6881/udp"
+    sysctls:
+      - net.ipv4.conf.all.src_valid_mark=1
     environment:
-      - VPN_SERVICE_PROVIDER=private internet access
-      - VPN_TYPE=openvpn
-      - OPENVPN_USER=${PIA_USER}
-      - OPENVPN_PASSWORD=${PIA_PASS}
-      - SERVER_REGIONS=${PIA_REGION}
-      - VPN_PORT_FORWARDING=on
-      - FIREWALL_OUTBOUND_SUBNETS=192.168.68.0/24   # allow LAN to reach the WebUI
-      - TZ=${TZ}
-      - UPDATER_PERIOD=24h
+      - LOC=ca_montreal
+      - USER=${PIA_USER}
+      - PASS=${PIA_PASS}
+      - LOCAL_NETWORK=192.168.68.0/24
+      - PORT_FORWARDING=1
+      - KEEPALIVE=25
     volumes:
-      - /volume1/Config/gluetun:/gluetun
+      - /volume1/docker/wireguard-pia/pia:/pia
+      - /volume1/docker/wireguard-pia/shared:/pia-shared
+    ports:
+      - "8080:8080"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf --max-time 5 https://ipinfo.io/ip >/dev/null || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 40s
     restart: unless-stopped
 
   qbittorrent:
     image: linuxserver/qbittorrent:latest
     container_name: qbittorrent
-    network_mode: "service:gluetun"
+    network_mode: "service:wireguard-pia"
     depends_on:
-      gluetun:
+      wireguard-pia:
         condition: service_healthy
     environment:
       - PUID=${PUID}
