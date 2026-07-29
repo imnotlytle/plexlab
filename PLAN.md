@@ -224,3 +224,19 @@ Note: Overseerr is **already running** (`DefiantJazz`) — Phase 2 is adopt/veri
   series has SCRAMBLED track tags (e.g. Into the Darkness: ...11,13,14,15,12,16... so ch15 plays
   before ch12) — still UNFIXED, offered to retag from filenames. King multi-part "gaps" are FALSE
   positives (tracks number continuously across part folders).
+
+### ABS duplicate titles fixed (2026-07-28)
+- ABS derives a book's title from the **`album` tag**, not the folder name. Duplicates came from:
+  - 5 Turtledove books tagged `album=Darkness` (Through/Rules/Out of/Jaws of/Darkness Descending)
+    all displayed as one title. ("Into the Darkness" had the correct album tag, hence no dupe.)
+  - King anthology novellas (Different Seasons x4, Four Past Midnight x4) inherited the anthology
+    album tag; each novella is a separate library item so they looked like duplicates.
+- Fixed via ABS API `PATCH /api/items/<id>/media {"metadata":{"title":...}}` — 14 targeted edits,
+  no files touched. Result: 143 items, **0 duplicate titles**.
+- A broad "derive title from folder name" rule was DRY-RUN first and REJECTED — it would have
+  wrecked good metadata (e.g. "The Dark Tower VII: The Dark Tower" -> "The Dark Tower",
+  "2001: A Space Odyssey" -> "2001 A Space Odyssey"). Only genuine duplicates were changed.
+- Format audit: 2 single-file m4b, 59 multi-file m4b, 62 multi-file mp3, 0 mixed. All codecs are
+  aac/mp3 = ABS direct-streams them (`-c:a copy`). **Nothing requires conversion for playback.**
+  Merging multi-file books into single chaptered m4b (via m4b-tool; Pat has an auto-m4b-tool.log)
+  is optional polish only — expensive on the N100 CPU.
