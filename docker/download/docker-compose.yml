@@ -15,7 +15,7 @@ services:
     sysctls:
       - net.ipv4.conf.all.src_valid_mark=1
     environment:
-      - LOC=ca_montreal
+      - LOC=ca_toronto        # thrnz PIA codes (NOT gluetun's "CA Toronto"); ca_montreal is invalid
       - USER=${PIA_USER}
       - PASS=${PIA_PASS}
       - LOCAL_NETWORK=192.168.68.0/24
@@ -49,4 +49,8 @@ services:
     volumes:
       - /volume1/Config/qbittorrent:/config
       - /volume1/Media/temp/downloads:/downloads
+      # audiobook staging: qBittorrent category "audiobooks" saves here, which is the
+      # same folder Audiobookshelf exposes as /temp for untagged books. Tag/organize
+      # there, then move into /volume1/Media/Audio/Regular (the ABS library).
+      - /volume1/Media/Audio/to_tag:/audiobooks
     restart: unless-stopped

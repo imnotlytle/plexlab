@@ -184,3 +184,23 @@ Note: Overseerr is **already running** (`DefiantJazz`) — Phase 2 is adopt/veri
   Final set: The Pirate Bay (~26), Knaben (~18-21), LimeTorrents (~10-28), EZTV (TV, via
   FlareSolverr), YTS (movies). RULE OF THUMB: Cloudflare-protected indexers are slow — only keep
   them if they add unique content (EZTV does; 1337x didn't).
+
+### Audiobooks (2026-07-28)
+- **Readarr is RETIRED** (Servarr archived it; metadata provider dead). Confirmed: lookup for a
+  known title returns 0 results. It still manages the existing 1360 books but CANNOT add new ones.
+  Fixed its download client anyway (was pointing at 192.168.68.58 — a machine that isn't the NAS;
+  it got missed when Sonarr/Radarr/Prowlarr were repointed) → now 127.0.0.1:8080, test OK.
+- **Workflow instead:** Prowlarr manual search → grab with qBittorrent category **`audiobooks`**
+  → lands in `/volume1/Media/Audio/to_tag` (ABS staging) → tag/organize → move to
+  `Audio/Regular/<Author>/<Title>` (the ABS library `/Audio`).
+- Added mount `/volume1/Media/Audio/to_tag:/audiobooks` to qBittorrent + category `audiobooks`.
+- **GOTCHA (cost an outage):** thrnz uses PIA codes like `ca_toronto`; **`ca_montreal` is INVALID**
+  and the container hard-fails ("Location not found") → qBittorrent then never starts because it
+  waits on the VPN healthcheck. Keep LOC=ca_toronto.
+- Audiobook indexers: 78 audiobook-capable in Prowlarr but nearly all PRIVATE. Public options are
+  effectively Knaben + The Pirate Bay (both already added). MyAnonaMouse (interview-based) is the
+  realistic upgrade if Pat wants a real audiobook library.
+- **If joining a private tracker:** current seed policy (ratio 1.0 / 3 days then *arr deletes)
+  would break ratio rules — must exempt those torrents (separate category, no seed limit) FIRST.
+- Audiobookshelf: user `imnotlytle`, password reset to admin123 (bcrypt via the container's
+  /server/libs/bcryptjs; DB backed up). App URL: https://abs.patplex.net (works home + away).
