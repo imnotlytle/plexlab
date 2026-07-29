@@ -23,6 +23,15 @@ services:
       - TZ=America/Chicago
       - USE_BOOK_TITLE=true
       - BOOK_LANGUAGE=en
+      # --- Metadata providers ---
+      # METADATA_PROVIDER defaults to "openlibrary", but the provider ships DISABLED, which
+      # produces an "Open Library not enabled" error on every search. Enable it explicitly.
+      # Google Books is enabled as a fallback because openlibrary.org had an outage
+      # (connection refused on :443) earlier the same day.
+      - METADATA_PROVIDER=openlibrary
+      - OPENLIBRARY_ENABLED=true
+      - GOOGLEBOOKS_ENABLED=true
+      - GOOGLEBOOKS_API_KEY=${GOOGLEBOOKS_API_KEY:-}   # optional; raises the free quota
       # --- Prowlarr as a search source ---
       - PROWLARR_ENABLED=true
       - PROWLARR_URL=http://192.168.68.56:9696

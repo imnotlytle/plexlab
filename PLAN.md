@@ -391,3 +391,8 @@ Note: Overseerr is **already running** (`DefiantJazz`) — Phase 2 is adopt/veri
   qBittorrent creds, ABB hostname. Config dir `/volume1/Config/shelfmark`.
 - Verified from inside the container: Prowlarr 302, qBittorrent 200, ABB host 200.
 - Still LAN-only (`192.168.68.56:8084`), deliberately NOT on the Cloudflare tunnel.
+- **"Open Library not enabled" error:** `METADATA_PROVIDER` defaults to `openlibrary` but the
+  provider itself ships DISABLED, so every search errors until `OPENLIBRARY_ENABLED=true` is set.
+  Also enabled Google Books as a fallback (openlibrary.org had a hard outage — connection refused
+  on :443 — earlier the same day; it has since recovered). `GOOGLEBOOKS_API_KEY` is optional and
+  only raises the free quota; the provider works without one.
