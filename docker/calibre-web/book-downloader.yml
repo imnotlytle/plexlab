@@ -1,0 +1,23 @@
+# Calibre-Web Automated Book Downloader — the "Overseerr for books" companion to CWA.
+# Search a title in a web UI -> it downloads into CWA's ingest folder -> auto-imported.
+#
+# IMPORTANT: this searches Anna's Archive / LibGen (shadow libraries). Deliberately bound to
+# the LAN only and NOT added to the Cloudflare tunnel — unlike Overseerr/Audiobookshelf this
+# one should not be internet-facing. Friends request via Pat rather than self-serving.
+
+services:
+  book-downloader:
+    image: ghcr.io/calibrain/calibre-web-automated-book-downloader:latest
+    container_name: book-downloader
+    restart: unless-stopped
+    environment:
+      - FLASK_PORT=8084
+      - UID=1000
+      - GID=10
+      - TZ=America/Chicago
+      - USE_BOOK_TITLE=true
+      - BOOK_LANGUAGE=en
+    volumes:
+      - /volume1/Media/Books/ingest:/cwa-book-ingest   # same folder CWA watches
+    ports:
+      - "192.168.68.56:8084:8084"    # LAN-only bind, not 0.0.0.0
