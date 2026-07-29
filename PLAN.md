@@ -282,3 +282,28 @@ Note: Overseerr is **already running** (`DefiantJazz`) — Phase 2 is adopt/veri
   89.2 GB — essentially identical (most books were already AAC = stream copy; mp3->aac at 96-128k
   lands at a similar size). The real wins are: one file per book, working chapters, and the
   Turtledove scrambled-order bug permanently fixed.
+
+### Cover audit (2026-07-29)
+- Method: exported every cover, built contact sheets, and VIEWED them; verified suspects
+  individually (contact-sheet index mapping proved unreliable — ffmpeg's image2 sequence reader
+  skipped frames, so only per-file verification is trustworthy).
+- 141/143 books have a cover file; 2 have none (Cycle of the Werewolf, Jaws of Darkness).
+- **8 CONFIRMED WRONG covers** — ABS auto-match takes the FIRST provider result, which for
+  ambiguous titles grabs an unrelated book:
+  | Book | Cover it wrongly got |
+  |---|---|
+  | Into the Darkness (Turtledove) | "Lights Out" - Navessa Allen |
+  | Out of the Darkness (Turtledove) | "Lights Out" - Navessa Allen |
+  | Darkness Descending (Turtledove) | "Everi: Darkness Descending" - Averi Sayer |
+  | Rules of the Darkness (Turtledove) | "Rules of Darkness" - Jack Hunt |
+  | Through the Darkness (Turtledove) | "Stone Lands" - Fiona Robertson |
+  | Days of Infamy (Turtledove) | "End of the Beginning" (its own sequel) |
+  | Hyperion (Simmons) | "The Fall of Hyperion" (its own sequel) |
+  | Apt Pupil (King novella) | "The Dark Tower II" |
+- FIXED automatically: **Hyperion** (exact Audible match existed; ABS had just picked result #1).
+- NOT fixable via providers: the Turtledove Darkness series is essentially unindexed —
+  Audible returns only Navessa Allen books regardless of author, Google/OpenLibrary return
+  nothing, FantLab has the correct book but only a Russian-edition cover.
+  Script: `scripts/fix-abs-covers.py` (`--strip` clears wrong covers when no correct one exists).
+- COVERAGE CAVEAT: ~60 books visually verified + the 8 suspects. The remaining ~80 were not
+  reliably checked because of the contact-sheet offset issue.
