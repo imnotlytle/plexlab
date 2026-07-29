@@ -265,3 +265,20 @@ Note: Overseerr is **already running** (`DefiantJazz`) — Phase 2 is adopt/veri
 - Second library "Audiobooks (merged test)" -> `/merged`, 133 items, for side-by-side testing
   before any swap. Swap plan: verify -> move originals to `_originals` -> promote merged ->
   delete originals after a confidence period. NOTE: swapping resets listening progress.
+
+### Audiobook library swap COMPLETE (2026-07-29)
+- All 138 multi-file books merged (0 failures) + the 5 already-single-file books COPIED into
+  `/volume1/Media/Audio/merged` so the merged set is complete at 143 = same as the original.
+- Swap method (non-destructive): deleted the OLD ABS library *definition* and renamed
+  "Audiobooks (merged test)" -> "Audiobooks" pointing at `/merged`. **No files were moved or
+  deleted** — originals remain at `/volume1/Media/Audio/Regular` (90 GB) until Pat removes them.
+  Revert = re-add `/Audio` as a library. DB backed up as `absdatabase.sqlite.pre-swap.*`.
+- Final: 143 books, ALL single-file, 140 with chapters, 2132 hours, 0 duplicate titles.
+- GOTCHA: the merged .m4b files did NOT inherit album/artist tags (ffmpeg `-map_metadata 1`
+  pulled only the chapters file), so ABS fell back to folder-name parsing and 62 titles showed
+  raw folder text ("Blaze (read by Ron McLarty)", "1_ Rita Hayworth..."). Fixed via the ABS API.
+  If ever re-merging, use `-map_metadata 0` on the concat input to carry source tags through.
+- **CORRECTION to an earlier claim:** this did NOT save ~40% space. Originals 89.1 GB vs merged
+  89.2 GB — essentially identical (most books were already AAC = stream copy; mp3->aac at 96-128k
+  lands at a similar size). The real wins are: one file per book, working chapters, and the
+  Turtledove scrambled-order bug permanently fixed.
