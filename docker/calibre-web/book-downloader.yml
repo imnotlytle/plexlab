@@ -1,15 +1,19 @@
-# Shelfmark (calibre-web-automated-book-downloader) — book search/acquire front-end for CWA.
+# Shelfmark (calibre-web-automated-book-downloader) — book/audiobook search + acquire.
 #
-# Bound to the LAN only and deliberately NOT added to the Cloudflare tunnel.
+# Flow:  Prowlarr / AudiobookBay -> qBittorrent -> Shelfmark imports -> library
+#   ebooks     -> /cwa-book-ingest -> Calibre-Web  (/volume1/Media/Books/ingest)
+#   audiobooks -> /audiobooks      -> Audiobookshelf staging (/volume1/Media/Audio/to_tag)
 #
-# PROWLARR INTEGRATION
-# Flow:  Prowlarr (indexers) -> qBittorrent downloads -> Shelfmark imports -> CWA library
-# CRITICAL: Shelfmark must see the download files at the SAME container path qBittorrent
-# reports. qBittorrent maps /volume1/Media/temp/downloads -> /downloads, so Shelfmark
-# mounts the identical host path at /downloads. Mismatched paths here are exactly the bug
-# that broke Radarr imports earlier in this project.
+# CRITICAL path rule (Shelfmark's own docs): it must see download files at the SAME container
+# path the download client reports. qBittorrent maps /volume1/Media/temp/downloads -> /downloads,
+# so Shelfmark mounts the identical host path at /downloads. Mismatch = silent import failure
+# (exactly the bug that broke Radarr earlier in this project).
 #
-# Secrets (Prowlarr API key, qBittorrent password) live in the gitignored .env beside this file.
+# AUTH: ships as AUTH_METHOD=none (NO login at all). It is exposed publicly, so auth is
+# mandatory — using `cwa` so it shares Calibre-Web's user database: one account per person
+# works for both the library and the downloader.
+#
+# Secrets live in the gitignored .env beside this file.
 
 services:
   book-downloader:
@@ -23,34 +27,45 @@ services:
       - TZ=America/Chicago
       - USE_BOOK_TITLE=true
       - BOOK_LANGUAGE=en
+      # --- Authentication (REQUIRED before exposing publicly) ---
+      - AUTH_METHOD=cwa                 # use Calibre-Web's user DB
+      - CWA_DB_PATH=/auth/app.db
       # --- Metadata providers ---
-      # METADATA_PROVIDER defaults to "openlibrary", but the provider ships DISABLED, which
-      # produces an "Open Library not enabled" error on every search. Enable it explicitly.
-      # Google Books is enabled as a fallback because openlibrary.org had an outage
-      # (connection refused on :443) earlier the same day.
+      # METADATA_PROVIDER defaults to "openlibrary" but the provider ships DISABLED, which
+      # errors on every search. Google Books enabled as fallback (openlibrary.org had an
+      # outage — connection refused on :443 — earlier the same day).
       - METADATA_PROVIDER=openlibrary
       - OPENLIBRARY_ENABLED=true
       - GOOGLEBOOKS_ENABLED=true
-      - GOOGLEBOOKS_API_KEY=${GOOGLEBOOKS_API_KEY:-}   # optional; raises the free quota
+      - GOOGLEBOOKS_API_KEY=${GOOGLEBOOKS_API_KEY:-}
+      # --- Destinations: ebooks vs audiobooks go to DIFFERENT libraries ---
+      - INGEST_DIR=/cwa-book-ingest                 # ebooks -> Calibre-Web
+      - DESTINATION_AUDIOBOOK=/audiobooks           # audiobooks -> Audiobookshelf staging
+      - QBITTORRENT_CATEGORY=books
+      - QBITTORRENT_CATEGORY_AUDIOBOOK=audiobooks   # matches the qBittorrent category already created
+      - BOOK_LIBRARY_URL=https://books.patplex.net
+      - AUDIOBOOK_LIBRARY_URL=https://abs.patplex.net
       # --- Prowlarr as a search source ---
       - PROWLARR_ENABLED=true
       - PROWLARR_URL=http://192.168.68.56:9696
       - PROWLARR_API_KEY=${PROWLARR_API_KEY}
       - PROWLARR_AUTO_EXPAND=true
       - PROWLARR_TORRENT_CLIENT=qbittorrent
-      - PROWLARR_TORRENT_ACTION=keep        # keep seeding after import (qBit's own ratio/time limits apply)
-      # --- AudiobookBay (audiobook releases; feeds the same qBittorrent client) ---
+      - PROWLARR_TORRENT_ACTION=keep    # keep seeding; qBit's ratio 1.0 / 3-day limits still apply
+      # --- AudiobookBay ---
       - ABB_ENABLED=true
       - ABB_HOSTNAME=${ABB_HOSTNAME}
       - ABB_PAGE_LIMIT=2
-      - ABB_RATE_LIMIT_DELAY=1.5     # be gentle; they rate-limit
-      # --- qBittorrent (reachable on the LAN IP; it lives in the VPN container's netns) ---
+      - ABB_RATE_LIMIT_DELAY=1.5
+      # --- qBittorrent (on the LAN IP; it lives in the VPN container's netns) ---
       - QBITTORRENT_URL=http://192.168.68.56:8080
       - QBITTORRENT_USERNAME=${QBIT_USER}
       - QBITTORRENT_PASSWORD=${QBIT_PASS}
     volumes:
       - /volume1/Config/shelfmark:/config
-      - /volume1/Media/Books/ingest:/cwa-book-ingest        # hand-off to Calibre-Web
-      - /volume1/Media/temp/downloads:/downloads            # MUST match qBittorrent's /downloads
+      - /volume1/Config/calibre-web:/auth              # Calibre-Web user DB, for AUTH_METHOD=cwa
+      - /volume1/Media/Books/ingest:/cwa-book-ingest   # ebook hand-off to Calibre-Web
+      - /volume1/Media/Audio/to_tag:/audiobooks        # audiobook hand-off to Audiobookshelf
+      - /volume1/Media/temp/downloads:/downloads       # MUST match qBittorrent's /downloads
     ports:
-      - "192.168.68.56:8084:8084"    # LAN-only bind, not 0.0.0.0
+      - "8084:8084"

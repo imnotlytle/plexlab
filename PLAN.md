@@ -396,3 +396,25 @@ Note: Overseerr is **already running** (`DefiantJazz`) — Phase 2 is adopt/veri
   Also enabled Google Books as a fallback (openlibrary.org had a hard outage — connection refused
   on :443 — earlier the same day; it has since recovered). `GOOGLEBOOKS_API_KEY` is optional and
   only raises the free quota; the provider works without one.
+
+### Shelfmark: split routing + auth + public exposure (2026-07-29)
+- **Ebook vs audiobook routing now separated:**
+  | type | qBit category -> save path | Shelfmark dest | library |
+  |---|---|---|---|
+  | ebooks | `books` -> `/downloads/books` | `/cwa-book-ingest` | Calibre-Web |
+  | audiobooks | `audiobooks` -> `/downloads/audiobooks` | `/audiobooks` | Audiobookshelf staging (`Audio/to_tag`) |
+  Env: `INGEST_DIR`, `DESTINATION_AUDIOBOOK`, `QBITTORRENT_CATEGORY`, `QBITTORRENT_CATEGORY_AUDIOBOOK`.
+  Also set `BOOK_LIBRARY_URL` / `AUDIOBOOK_LIBRARY_URL` for in-app nav buttons.
+- **CAUGHT A CONFLICT:** the qBittorrent `audiobooks` category originally saved to `/audiobooks`,
+  which is the SAME host folder as Shelfmark's audiobook DESTINATION (`Audio/to_tag`). qBit would
+  have downloaded straight into the library and Shelfmark's import would be a no-op, with torrents
+  left seeding from inside the library. Fixed by moving both categories under `/downloads/*` so
+  source and destination are distinct.
+- **AUTH (was `none` = no login at all!):** set `AUTH_METHOD=cwa` + `CWA_DB_PATH=/auth/app.db`
+  with `/volume1/Config/calibre-web` mounted at `/auth`, so Shelfmark shares Calibre-Web's user
+  database — one account per person covers both. Verified enforced: `/api/status` and
+  `/api/settings` return 401 without credentials, publicly and locally.
+- **Exposed publicly** at `https://shelfmark.patplex.net` (4th route on the Overseerr tunnel).
+  Port binding changed from LAN-only back to `8084:8084` so the tunnel can reach it.
+- ⚠️ The credential now guarding an internet-facing download tool is Calibre-Web's
+  `admin`/`admin123` — MUST be changed.
