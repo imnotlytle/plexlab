@@ -358,3 +358,21 @@ Note: Overseerr is **already running** (`DefiantJazz`) — Phase 2 is adopt/veri
 - "Overseerr for books" = **Calibre-Web Automated Book Downloader** (searches Anna's Archive /
   LibGen, drops into the ingest folder). Self-serve, no request/approve workflow. NOT installed —
   flagged the copyright consideration to Pat first.
+
+### Ebook library: curated Gutenberg + public tunnel (2026-07-29)
+- **Gutenberg curation decision:** the full text-only EPUB mirror is 78,008 books / 19.2 GB
+  (rsync `aleph.gutenberg.org::gutenberg-epub`). NOTE the full mirror incl. `-images` variants is
+  **269 GB**, and rsync filter ORDER matters — excludes must come BEFORE includes or the
+  `-images` files match first. Abandoned the full pull (mirror throttles to ~250 kB/s = ~26 h)
+  in favour of `scripts/import-gutenberg-top.py`, which pulls Gutenberg's published
+  **top-1000 by download count** — the best available proxy for "classics people actually read"
+  (their bookshelves are broad categories, not quality lists). Downloads via the pglaf mirror,
+  per Gutenberg's robot policy.
+- **Public tunnel:** added `books.patplex.net` -> `http://192.168.68.56:8083` as a published
+  application route on the Overseerr tunnel (`d22066e0`) via the CF dashboard. Verified live
+  (HTTP 200, serves the Calibre-Web login). The tunnel now publishes THREE hostnames:
+  overseerr / abs / books.
+- **book-downloader deliberately NOT tunnelled** — bound to `192.168.68.56:8084` (LAN only).
+- DNS: `calibre.home` added for Calibre-Web. NOTE `books.home` already existed pointing at the
+  NAS for Audiobookshelf, so remember the ports: calibre.home:8083 = ebooks,
+  books.home:13378 = audiobooks.
