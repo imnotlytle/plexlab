@@ -240,3 +240,28 @@ Note: Overseerr is **already running** (`DefiantJazz`) — Phase 2 is adopt/veri
   aac/mp3 = ABS direct-streams them (`-c:a copy`). **Nothing requires conversion for playback.**
   Merging multi-file books into single chaptered m4b (via m4b-tool; Pat has an auto-m4b-tool.log)
   is optional polish only — expensive on the N100 CPU.
+
+### Audiobook merge to single-file m4b (2026-07-29)
+- Converted 133 multi-file audiobooks -> single chaptered .m4b. Ran on **Pat's PC**
+  (Ryzen 7800X3D) against the NAS over SMB — the N100 is far too slow. ffmpeg installed on the
+  PC via winget (Gyan.FFmpeg). Script: `scripts/Merge-Audiobooks.ps1` + `Run-MergeOvernight.ps1`.
+- Phase 1 (AAC, lossless stream copy): 51 books in 87 min. Phase 2 (mp3->aac transcode): ~8.7 hrs.
+  0 failures. Output 85 GB vs ~145 GB originals (~40% smaller). Output: `/volume1/Media/Audio/merged`.
+- **Originals untouched.** Nothing deleted/moved.
+- THREE bugs found and fixed in the script during the run:
+  1. Book boundaries were folder-depth based -> was fusing Southern Victory's 11 novels into one
+     4.5 GB file. Fixed by driving the merge from **ABS's own library relPaths** (`scripts/absbooks.txt`).
+  2. Sorting preferred track tags -> the Turtledove "Darkness" books have SCRAMBLED tags, which
+     would have baked the wrong chapter order in permanently. Now prefers a clean filename
+     sequence and logs when tags disagree. All 6 Darkness books verified CORRECT order.
+  3. Sequence detection grabbed the last number in the filename — ".m4b"/".mp3" contain digits,
+     so every file scored the same. Now strips the extension first.
+- PowerShell gotcha: never use `-stats` / `2>&1` on ffmpeg in PS 5.1 — stderr becomes
+  NativeCommandError and the script "fails" on success.
+- **Audiobookshelf adopted into compose** (`docker/audiobookshelf/`, container still `MsCobel`).
+  Added `/merged` mount + **`/metadata` mount** (it previously had METADATA_PATH set with NO
+  volume, so all cover art/cache/ABS-backups lived in the container layer and would vanish on any
+  recreate; 38 MB copied out to `/volume1/Config/AudioBookShelf-metadata` first).
+- Second library "Audiobooks (merged test)" -> `/merged`, 133 items, for side-by-side testing
+  before any swap. Swap plan: verify -> move originals to `_originals` -> promote merged ->
+  delete originals after a confidence period. NOTE: swapping resets listening progress.

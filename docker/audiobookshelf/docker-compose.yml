@@ -1,0 +1,30 @@
+# Audiobookshelf — adopted into compose from the UGOS GUI container ("MsCobel") on 2026-07-29.
+# Container name kept as MsCobel so nothing else that references it breaks.
+#
+# Two mounts were ADDED vs the original GUI container:
+#   /merged   - the single-file chaptered .m4b conversions, mounted so they can be added as a
+#               SECOND library for side-by-side testing before replacing the originals.
+#   /metadata - the original container had METADATA_PATH=/metadata with NO volume, so all cover
+#               art / cache / ABS backups lived in the container layer and would be lost on any
+#               recreate. Now persisted to /volume1/Config/AudioBookShelf-metadata.
+
+services:
+  audiobookshelf:
+    image: advplyr/audiobookshelf:latest
+    container_name: MsCobel
+    restart: always
+    ports:
+      - "13378:80"
+    environment:
+      - PORT=80
+      - CONFIG_PATH=/config
+      - METADATA_PATH=/metadata
+      - PUID=1000
+      - PGID=10
+      - TZ=America/Chicago
+    volumes:
+      - /volume1/Config/AudioBookShelf:/config
+      - /volume1/Config/AudioBookShelf-metadata:/metadata
+      - /volume1/Media/Audio/Regular:/Audio          # existing library (originals)
+      - /volume1/Media/Audio/to_tag:/temp            # untagged staging + qBittorrent audiobooks
+      - /volume1/Media/Audio/merged:/merged          # NEW: merged single-file m4b (test library)
