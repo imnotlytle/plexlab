@@ -307,3 +307,29 @@ Note: Overseerr is **already running** (`DefiantJazz`) — Phase 2 is adopt/veri
   Script: `scripts/fix-abs-covers.py` (`--strip` clears wrong covers when no correct one exists).
 - COVERAGE CAVEAT: ~60 books visually verified + the 8 suspects. The remaining ~80 were not
   reliably checked because of the contact-sheet offset issue.
+
+### Cover audit COMPLETE — all 143 books visually verified (2026-07-29)
+- Method that works: `scripts/build-cover-grids.py` builds contact grids with EXPLICIT ffmpeg
+  `-i` inputs + xstack, and writes a `grid_NN.txt` cell->title map. (The earlier attempt used
+  the image2 sequence reader `-start_number`/`%03d`, which silently skips frames and made the
+  mapping wrong by 5 positions — never use it for this.)
+- **15 wrong covers found and fixed** across two rounds:
+  Round 1 (7 Turtledove + Hyperion): Into the Darkness, Out of the Darkness, Darkness Descending,
+  Rules of the Darkness (actual book = "Rulers of the Darkness"), Through the Darkness,
+  Jaws of Darkness, Days of Infamy, Hyperion.
+  Round 2 (found by the full visual audit): Rage (had "Road Rage"), Rita Hayworth and the
+  Shawshank Redemption (had "Le Fleau" = French "The Stand"), Storm of the Century (had a
+  Willie Drye hurricane history), The Art of War (had an MJ DeMarco business book),
+  The Breathing Method (had Dark Tower IV), The Dark Tower (had DT1 Gunslinger),
+  The Shining (had Doctor Sleep, its sequel).
+- Sources: `scripts/apply-archive-covers.py` + `scripts/fix-covers-round2.py`. Audible only when
+  title AND author both match; otherwise archive.org `/services/img/<identifier>` (rejecting
+  <3 KB 1x1 placeholders). One cover came from Wikipedia (Into the Darkness cover art).
+- **openlibrary.org is DOWN** (connection refused on 443 from both NAS and PC; DNS resolves fine,
+  AdGuard is NOT blocking it). ABS's OpenLibrary provider will recover on its own.
+- Acceptable-but-imperfect (left alone): novellas (The Langoliers, The Library Policeman,
+  The Sun Dog, Secret Window) show their parent "Four Past Midnight" cover; "Throttle" shows the
+  "He Is Legend" anthology it appeared in; "Morality" uses the Esquire issue it was published in;
+  "Night Shift" shows a single-story "Graveyard Shift" edition; "The Time Machine" shows a sci-fi
+  mega-collection. All are the correct work, just not a dedicated cover.
+- Still missing a cover entirely: Cycle of the Werewolf.
