@@ -178,3 +178,9 @@ Note: Overseerr is **already running** (`DefiantJazz`) — Phase 2 is adopt/veri
 - Verified aggregate TV search ("the bear s03e01") = 59 seeded results:
   Pirate Bay 26, Knaben 18, LimeTorrents 10, 1337x 3, EZTV 2.
 - Note: 1337x adds ~12s/search (Cloudflare challenge each query). Disable if searches feel slow.
+- **Pruned for speed (2026-07-28):** removed **1337x** (3.3s warm / ~12s cold Cloudflare challenge
+  for only ~3 results — gated every search) and **BTdirectory** (broken: btmulu.live Cloudflare-
+  blocked, returned errors). Search time dropped ~12s → **0.8–2.2s** with only 3 fewer results.
+  Final set: The Pirate Bay (~26), Knaben (~18-21), LimeTorrents (~10-28), EZTV (TV, via
+  FlareSolverr), YTS (movies). RULE OF THUMB: Cloudflare-protected indexers are slow — only keep
+  them if they add unique content (EZTV does; 1337x didn't).
