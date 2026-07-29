@@ -24,6 +24,7 @@ param(
     [ValidateSet("aac", "mp3", "all")][string]$Only = "aac",  # which source type to process
     [int]$Limit = 0,                                           # 0 = no limit
     [string]$Match = "",                                       # only books whose path matches
+    [string]$BookList = "$PSScriptRoot\absbooks.txt",          # ABS relPaths = book boundaries
     [switch]$WhatIfOnly                                        # list what would be done
 )
 
@@ -57,21 +58,23 @@ function Get-AudioInfo([string]$path) {
     }
 }
 
-# ---- discover books (Author/Title folders with >1 audio file, recursive) ----
+# ---- book boundaries come from Audiobookshelf, not from folder depth ----
+# ABS already knows e.g. "Harry Turtledove/Southern Victory" is ELEVEN separate novels
+# (Southern Victory/American Front, .../Blood and Iron, ...). Merging by folder depth
+# would fuse all 11 into one 4.5 GB file. -BookList is ABS's own relPath list.
 $books = @()
-foreach ($author in Get-ChildItem -LiteralPath $SrcRoot -Directory) {
-    foreach ($title in Get-ChildItem -LiteralPath $author.FullName -Directory) {
-        $files = Get-ChildItem -LiteralPath $title.FullName -Recurse -File |
-                 Where-Object { $_.Extension -match '^\.(mp3|m4b|m4a)$' }
-        if ($files.Count -le 1) { continue }
-        $exts = $files | ForEach-Object { $_.Extension.ToLower() } | Sort-Object -Unique
-        $kind = if ($exts -contains '.mp3' -and $exts.Count -gt 1) { 'mixed' }
-                elseif ($exts -contains '.mp3') { 'mp3' } else { 'aac' }
-        $books += [pscustomobject]@{
-            Rel = "$($author.Name)\$($title.Name)"; Dir = $title.FullName
-            Files = $files; Kind = $kind
-        }
-    }
+if (-not (Test-Path -LiteralPath $BookList)) { throw "BookList not found: $BookList" }
+foreach ($rel in Get-Content -LiteralPath $BookList | Where-Object { $_.Trim() }) {
+    $relWin = $rel.Trim() -replace '/', '\'
+    $dir = Join-Path $SrcRoot $relWin
+    if (-not (Test-Path -LiteralPath $dir)) { continue }
+    $files = Get-ChildItem -LiteralPath $dir -Recurse -File |
+             Where-Object { $_.Extension -match '^\.(mp3|m4b|m4a)$' }
+    if ($files.Count -le 1) { continue }   # already a single file = nothing to merge
+    $exts = $files | ForEach-Object { $_.Extension.ToLower() } | Sort-Object -Unique
+    $kind = if ($exts -contains '.mp3' -and $exts.Count -gt 1) { 'mixed' }
+            elseif ($exts -contains '.mp3') { 'mp3' } else { 'aac' }
+    $books += [pscustomobject]@{ Rel = $relWin; Dir = $dir; Files = $files; Kind = $kind }
 }
 
 if ($Match) { $books = $books | Where-Object { $_.Rel -like "*$Match*" } }
@@ -99,13 +102,37 @@ foreach ($b in $books) {
     foreach ($f in $b.Files) { $i = Get-AudioInfo $f.FullName; if ($i) { $infos += $i } }
     if ($infos.Count -lt 2) { $failed += "$($b.Rel) :: probe failed"; continue }
 
-    # order: track tags if complete & unique, else natural filename
-    $tracks = $infos | Where-Object { $_.Track -ne $null }
-    $useTags = ($tracks.Count -eq $infos.Count) -and
-               (($infos.Track | Sort-Object -Unique).Count -eq $infos.Count)
-    $ordered = if ($useTags) { $infos | Sort-Object Track }
-               else { $infos | Sort-Object { Get-NaturalKey (Split-Path $_.Path -Leaf) } }
-    Write-Output ("  order by: " + $(if ($useTags) { "track tags" } else { "filename (natural)" }))
+    # ---- ORDERING ----
+    # Filenames win when they carry a clean complete 1..N sequence. Some rips (e.g. the
+    # Turtledove "Darkness" books) have SCRAMBLED track tags -- Into the Darkness tags read
+    # 1..11,13,14,15,12,16.. so sorting by tag would play ch15 before ch12 and bake that
+    # wrong order permanently into the merged file. Filenames there are clean Chapter 01..20.
+    $byName = $infos | Sort-Object { Get-NaturalKey (Split-Path $_.Path -Leaf) }
+    # NOTE: strip the extension first - ".m4b"/".mp3" contain digits and would otherwise
+    # be picked up as the sequence number for every single file.
+    $seq = foreach ($i in $byName) {
+        $mm = [regex]::Matches([IO.Path]::GetFileNameWithoutExtension($i.Path), '\d+')
+        if ($mm.Count) { [int]$mm[$mm.Count - 1].Value } else { $null }
+    }
+    $nameSeqGood = ($seq -notcontains $null) -and
+                   (($seq | Sort-Object -Unique).Count -eq $infos.Count) -and
+                   (-not (Compare-Object $seq ($seq | Sort-Object)))
+
+    $tracks  = $infos | Where-Object { $_.Track -ne $null }
+    $tagsGood = ($tracks.Count -eq $infos.Count) -and
+                (($infos.Track | Sort-Object -Unique).Count -eq $infos.Count)
+
+    if ($nameSeqGood) {
+        $ordered = $byName; $orderBy = "filename sequence"
+        if ($tagsGood) {
+            $tagOrder = ($infos | Sort-Object Track | ForEach-Object { $_.Path })
+            if (Compare-Object $tagOrder ($byName | ForEach-Object { $_.Path }) -SyncWindow 0) {
+                $orderBy = "filename sequence (NOTE: track tags disagree - tags look scrambled)"
+            }
+        }
+    } elseif ($tagsGood) { $ordered = $infos | Sort-Object Track; $orderBy = "track tags" }
+    else { $ordered = $byName; $orderBy = "filename (natural, no clean sequence)" }
+    Write-Output "  order by: $orderBy"
 
     $srcTotal = ($ordered | Measure-Object Duration -Sum).Sum
 
