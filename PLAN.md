@@ -167,3 +167,14 @@ Note: Overseerr is **already running** (`DefiantJazz`) — Phase 2 is adopt/veri
 - PIA credentials — user provides directly to config; Claude never handles them.
 - NAS LAN IP + SSH username/port.
 - Inventory of what's currently running (Phase 1).
+
+### Prowlarr indexers (2026-07-28)
+- **EZTV was failing**: "blocked by CloudFlare Protection". Root cause: FlareSolverr was never
+  wired into Prowlarr (proxy + tag missing) — it had been failing since Feb, not caused by the
+  earlier FlareSolverr removal. Fix: redeployed FlareSolverr (`/volume1/docker/flaresolverr`,
+  :8191) AND created Prowlarr Indexer Proxy "FlareSolverr" (host http://192.168.68.56:8191)
+  with tag `flaresolverr`, then tagged EZTV (and 1337x) with it. EZTV now returns results.
+- **Added TV indexers**: LimeTorrents, Knaben, 1337x (1337x tagged flaresolverr).
+- Verified aggregate TV search ("the bear s03e01") = 59 seeded results:
+  Pirate Bay 26, Knaben 18, LimeTorrents 10, 1337x 3, EZTV 2.
+- Note: 1337x adds ~12s/search (Cloudflare challenge each query). Disable if searches feel slow.
