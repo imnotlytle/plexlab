@@ -73,7 +73,11 @@ services:
       - /volume1/Config/shelfmark:/config
       - /volume1/Config/calibre-web:/auth              # Calibre-Web user DB, for AUTH_METHOD=cwa
       - /volume1/Media/Books/ingest:/cwa-book-ingest   # ebook hand-off to Calibre-Web
-      - /volume1/Media/Audio/to_tag:/audiobooks        # audiobook hand-off to Audiobookshelf
+      # Audiobooks go STRAIGHT into the live Audiobookshelf library, not a staging folder.
+      # ABS scans /merged and its file watcher is enabled (scannerDisableWatcher=false), so a
+      # finished download appears in the library with no manual move. Safe because
+      # FILE_ORGANIZATION_AUDIOBOOK=organize writes {Author}/{Title}/ — the same shape ABS expects.
+      - /volume1/Media/Audio/merged:/audiobooks
       - /volume1/Media/temp/downloads:/downloads       # MUST match qBittorrent's /downloads
     ports:
       - "8084:8084"

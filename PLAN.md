@@ -437,3 +437,11 @@ Note: Overseerr is **already running** (`DefiantJazz`) — Phase 2 is adopt/veri
   `book-downloader` when it changes, so adding a Calibre-Web user no longer needs a manual restart.
   Debounced (20 s settle) and rate-limited (90 s) so routine DB writes don't cause restart loops.
   Logs to `/volume1/docker/_backups/shelfmark-auth-watch.log`.
+- **Audiobooks now land directly in the LIVE library.** `DESTINATION_AUDIOBOOK=/audiobooks` was
+  mounted to `Audio/to_tag` (staging), so every download still needed a manual move. Remounted to
+  `/volume1/Media/Audio/merged` — the folder ABS actually scans. Safe because
+  `FILE_ORGANIZATION_AUDIOBOOK=organize` writes `{Author}/{Title}/`, matching the library layout,
+  and ABS's file watcher is on (`scannerDisableWatcher=false`) so new books appear automatically.
+  Verified Shelfmark can write there (38 existing author folders visible).
+- Note: Fatherland + The Passage ended up duplicated (Pat had already moved them into the library;
+  a redundant copy remained in `to_tag`). ~2.4 GB reclaimable by deleting the `to_tag` copies.
