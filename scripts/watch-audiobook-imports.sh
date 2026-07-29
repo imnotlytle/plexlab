@@ -13,8 +13,15 @@ LOG=/volume1/docker/_backups/audiobook-import-watch.log
 INTERVAL=${INTERVAL:-120}
 MAX_MIN=${MAX_MIN:-720}          # give up after 12h
 
+# Credentials come from a gitignored file on the NAS, so this script is safe in a public repo.
+CREDS=${CREDS:-/volume1/docker/scripts/.creds}
+[ -f "$CREDS" ] && . "$CREDS"
+QBIT_USER=${QBIT_USER:-admin}
+: "${QBIT_PASS:?QBIT_PASS not set — create $CREDS}"
+
 cj=$(mktemp)
-login() { curl -s -c "$cj" "$QB/api/v2/auth/login" --data "username=admin&password=admin123" -o /dev/null; }
+login() { curl -s -c "$cj" "$QB/api/v2/auth/login" \
+          --data-urlencode "username=$QBIT_USER" --data-urlencode "password=$QBIT_PASS" -o /dev/null; }
 login
 
 say() { echo "$(date '+%F %T') $*" | tee -a "$LOG"; }

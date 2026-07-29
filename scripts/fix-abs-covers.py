@@ -11,11 +11,28 @@ strip covers that are known-wrong when no correct one exists (better blank than 
 import json, urllib.request, urllib.parse, sqlite3, sys
 
 BASE = "http://localhost:13378"
+
+def _creds(path="/volume1/docker/scripts/.creds"):
+    """Read credentials from a gitignored file so this script is safe in a public repo."""
+    d = {}
+    try:
+        with open(path) as f:
+            for line in f:
+                line = line.strip()
+                if line and not line.startswith("#") and "=" in line:
+                    k, v = line.split("=", 1)
+                    d[k.strip()] = v.strip()
+    except FileNotFoundError:
+        raise SystemExit("credentials file not found: " + path)
+    return d
+
+
+CREDS = _creds()
 DB = "/volume1/Config/AudioBookShelf/absdatabase.sqlite"
 
 
 def login():
-    body = json.dumps({"username": "imnotlytle", "password": "admin123"}).encode()
+    body = json.dumps({"username": CREDS["ABS_USER"], "password": CREDS["ABS_PASS"]}).encode()
     r = urllib.request.Request(BASE + "/login", data=body,
                                headers={"Content-Type": "application/json"})
     return json.loads(urllib.request.urlopen(r, timeout=30).read())["user"]["token"]

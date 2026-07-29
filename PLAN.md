@@ -484,3 +484,23 @@ overseerr / abs / books / shelfmark. Root pages return 200 (SPA shells), which i
 - Cloudflare Access or WAF rate-limiting in front of the public hostnames (would harden against
   credential stuffing, but can break the Audiobookshelf/Prologue mobile apps).
 - Offsite backup still missing — `/volume1/docker/_backups` is same-pool only.
+
+### Credentials moved out of the repo (2026-07-29)
+Prep for publishing this repo. Five scripts had hardcoded logins
+(`qbit-port-sync.sh`, `watch-audiobook-imports.sh`, and the three cover scripts). They now read
+`/volume1/docker/scripts/.creds` (chmod 600, gitignored). Two benefits: nothing sensitive is
+tracked, and the cover scripts no longer carry a STALE Audiobookshelf password (they would have
+failed after the security rotation). Verified both cron-driven scripts still authenticate.
+STILL IN THE REPO if it ever goes public: the real domain (patplex.net), LAN IPs, Cloudflare
+account/tunnel IDs, and the ABS username. Fine for a private repo; scrub before publishing.
+
+### Shelfmark auto-import is NOT reliable for in-flight downloads
+`The Postman` finished and was left in `/downloads` with **no post-processing attempt logged at
+all**. Cause: Shelfmark tracks downloads as in-memory tasks, and this session restarted the
+container repeatedly for config changes, orphaning every task that was already running. Those
+torrents complete with nobody watching them.
+- Downloads STARTED AFTER the last restart should auto-import correctly.
+- Anything already in flight during a restart needs manual import.
+- `scripts/watch-audiobook-imports.sh` exists to make this visible — it flags
+  `[NOT IMPORTED]` per finished torrent rather than failing silently.
+Manually imported so far: Wool, Boy's Life, It, The Postman.
