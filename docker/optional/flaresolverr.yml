@@ -1,11 +1,11 @@
-# FlareSolverr was REMOVED on 2026-07-27 — it was running unused (no Prowlarr indexer
-# proxy referenced it) and exposed an unauthenticated headless browser on the LAN (:8191).
+# FlareSolverr — REQUIRED for Cloudflare-protected indexers (e.g. EZTV).
+# Deployed at /volume1/docker/flaresolverr on the NAS.
 #
-# Re-add ONLY if you later add a Cloudflare-protected indexer that needs it:
-#   1. copy this file to the NAS, e.g. /volume1/docker/flaresolverr/docker-compose.yml
-#   2. `docker compose up -d`
-#   3. in Prowlarr: Settings > Indexer Proxies > add FlareSolverr, Host http://<nas-ip>:8191,
-#      give it a Tag, and add that tag to the indexers that require it.
+# IMPORTANT: running the container is NOT enough. It must be wired into Prowlarr:
+#   Settings > Indexer Proxies > + > FlareSolverr
+#     Host: http://192.168.68.56:8191   Tag: flaresolverr
+#   Then add that same "flaresolverr" tag to each indexer that needs it (EZTV, etc).
+# Without the proxy+tag, indexers still fail with "blocked by CloudFlare Protection".
 
 services:
   flaresolverr:
