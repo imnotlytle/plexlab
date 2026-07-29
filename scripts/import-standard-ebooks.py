@@ -22,9 +22,21 @@ BASE = "https://standardebooks.org"
 LIMIT = int(sys.argv[1]) if len(sys.argv) > 1 else 0     # 0 = all
 
 
-def get(url, timeout=60):
-    r = urllib.request.Request(url, headers={"User-Agent": UA})
-    return urllib.request.urlopen(r, timeout=timeout).read()
+def get(url, timeout=60, tries=6):
+    """Fetch with backoff. Standard Ebooks rate-limits (HTTP 429) at ~1 req/sec sustained,
+    so back off hard rather than hammering them."""
+    delay = 5
+    for attempt in range(tries):
+        try:
+            r = urllib.request.Request(url, headers={"User-Agent": UA})
+            return urllib.request.urlopen(r, timeout=timeout).read()
+        except urllib.error.HTTPError as e:
+            if e.code == 429 and attempt < tries - 1:
+                time.sleep(delay)
+                delay *= 2          # 5,10,20,40,80s
+                continue
+            raise
+    raise RuntimeError("exhausted retries")
 
 
 def list_books():

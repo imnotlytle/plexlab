@@ -333,3 +333,28 @@ Note: Overseerr is **already running** (`DefiantJazz`) — Phase 2 is adopt/veri
   "Night Shift" shows a single-story "Graveyard Shift" edition; "The Time Machine" shows a sci-fi
   mega-collection. All are the correct work, just not a dedicated cover.
 - Still missing a cover entirely: Cycle of the Werewolf.
+
+### Ebook server — Calibre-Web Automated (2026-07-29)
+- `docker/calibre-web/` -> `/volume1/docker/calibre-web`, UI on **:8083**, memory-capped 1500M.
+  Library `/volume1/Media/Books/library`, auto-ingest folder `/volume1/Media/Books/ingest`
+  (drop any ebook there and it is imported + organised by author automatically).
+- Login: **admin / admin123** (verified) — change at `/me`.
+- Sharing (verified URLs, all return 302 = exist):
+  * **OPDS** works out of the box, no setting: `http://192.168.68.56:8083/opds` (401 without auth).
+  * **Kobo Sync** — I enabled it (`config_kobo_sync` 0 -> 1 in `/volume1/Config/calibre-web/app.db`,
+    container must be stopped to edit). Per-user token at `/admin/view` -> click user.
+  * **Send to Kindle** — needs SMTP at `/admin/mailsettings` (still placeholder mail.example.org).
+  * **New users** at `/admin/user/new`.
+- Bulk import: `scripts/import-standard-ebooks.py` (Standard Ebooks = public-domain classics,
+  professionally typeset, free/legal). ~1198 books found.
+  GOTCHAS: `/downloads/*.epub` returns an HTML interstitial — must append `?source=download`;
+  the OPDS feed `/feeds/opds/all` is 401 (patron-only) so scrape the public `/ebooks` listing;
+  a browser User-Agent is required; and SE rate-limits (HTTP 429) — use >=3s delay plus
+  exponential backoff or the run dies around book ~316.
+- SIZE REALITY: ebooks are tiny. All ~1200 Standard Ebooks ~= 1 GB; all of Project Gutenberg
+  (~75k books) ~= 15 GB. The 500 GB budget is ~50x more than this needs.
+- Gutenberg mirrors reachable for future bulk import: gutenberg.pglaf.org,
+  mirrors.xmission.com/gutenberg, mirror.csclub.uwaterloo.ca/gutenberg (aleph.gutenberg.org is not).
+- "Overseerr for books" = **Calibre-Web Automated Book Downloader** (searches Anna's Archive /
+  LibGen, drops into the ingest folder). Self-serve, no request/approve workflow. NOT installed —
+  flagged the copyright consideration to Pat first.
