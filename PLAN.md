@@ -376,3 +376,18 @@ Note: Overseerr is **already running** (`DefiantJazz`) — Phase 2 is adopt/veri
 - DNS: `calibre.home` added for Calibre-Web. NOTE `books.home` already existed pointing at the
   NAS for Audiobookshelf, so remember the ports: calibre.home:8083 = ebooks,
   books.home:13378 = audiobooks.
+
+### Shelfmark (book-downloader) wired to Prowlarr + AudiobookBay (2026-07-29)
+- Image is `calibre-web-automated-book-downloader` but the app brands itself **Shelfmark** (v1.3.4).
+- Flow: Prowlarr (indexers) -> qBittorrent -> Shelfmark imports -> `/cwa-book-ingest` -> Calibre-Web.
+- **CRITICAL path rule (from Shelfmark's own docs):** Shelfmark must see download files at the
+  SAME container path the download client reports. qBittorrent maps
+  `/volume1/Media/temp/downloads -> /downloads`, so Shelfmark now mounts the identical host path
+  at `/downloads`. Verified it can see the real files. (Same class of bug that broke Radarr imports.)
+- Env set: `PROWLARR_ENABLED/URL/API_KEY/AUTO_EXPAND`, `PROWLARR_TORRENT_CLIENT=qbittorrent`,
+  `PROWLARR_TORRENT_ACTION=keep` (keeps seeding; qBit's own ratio 1.0 / 3-day limits still apply),
+  `QBITTORRENT_URL/USERNAME/PASSWORD`, `ABB_ENABLED=true` + `ABB_HOSTNAME`.
+- Secrets in gitignored `/volume1/docker/calibre-web/.env` (chmod 600): Prowlarr API key,
+  qBittorrent creds, ABB hostname. Config dir `/volume1/Config/shelfmark`.
+- Verified from inside the container: Prowlarr 302, qBittorrent 200, ABB host 200.
+- Still LAN-only (`192.168.68.56:8084`), deliberately NOT on the Cloudflare tunnel.

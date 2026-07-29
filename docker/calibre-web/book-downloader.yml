@@ -1,9 +1,15 @@
-# Calibre-Web Automated Book Downloader — the "Overseerr for books" companion to CWA.
-# Search a title in a web UI -> it downloads into CWA's ingest folder -> auto-imported.
+# Shelfmark (calibre-web-automated-book-downloader) — book search/acquire front-end for CWA.
 #
-# IMPORTANT: this searches Anna's Archive / LibGen (shadow libraries). Deliberately bound to
-# the LAN only and NOT added to the Cloudflare tunnel — unlike Overseerr/Audiobookshelf this
-# one should not be internet-facing. Friends request via Pat rather than self-serving.
+# Bound to the LAN only and deliberately NOT added to the Cloudflare tunnel.
+#
+# PROWLARR INTEGRATION
+# Flow:  Prowlarr (indexers) -> qBittorrent downloads -> Shelfmark imports -> CWA library
+# CRITICAL: Shelfmark must see the download files at the SAME container path qBittorrent
+# reports. qBittorrent maps /volume1/Media/temp/downloads -> /downloads, so Shelfmark
+# mounts the identical host path at /downloads. Mismatched paths here are exactly the bug
+# that broke Radarr imports earlier in this project.
+#
+# Secrets (Prowlarr API key, qBittorrent password) live in the gitignored .env beside this file.
 
 services:
   book-downloader:
@@ -17,7 +23,25 @@ services:
       - TZ=America/Chicago
       - USE_BOOK_TITLE=true
       - BOOK_LANGUAGE=en
+      # --- Prowlarr as a search source ---
+      - PROWLARR_ENABLED=true
+      - PROWLARR_URL=http://192.168.68.56:9696
+      - PROWLARR_API_KEY=${PROWLARR_API_KEY}
+      - PROWLARR_AUTO_EXPAND=true
+      - PROWLARR_TORRENT_CLIENT=qbittorrent
+      - PROWLARR_TORRENT_ACTION=keep        # keep seeding after import (qBit's own ratio/time limits apply)
+      # --- AudiobookBay (audiobook releases; feeds the same qBittorrent client) ---
+      - ABB_ENABLED=true
+      - ABB_HOSTNAME=${ABB_HOSTNAME}
+      - ABB_PAGE_LIMIT=2
+      - ABB_RATE_LIMIT_DELAY=1.5     # be gentle; they rate-limit
+      # --- qBittorrent (reachable on the LAN IP; it lives in the VPN container's netns) ---
+      - QBITTORRENT_URL=http://192.168.68.56:8080
+      - QBITTORRENT_USERNAME=${QBIT_USER}
+      - QBITTORRENT_PASSWORD=${QBIT_PASS}
     volumes:
-      - /volume1/Media/Books/ingest:/cwa-book-ingest   # same folder CWA watches
+      - /volume1/Config/shelfmark:/config
+      - /volume1/Media/Books/ingest:/cwa-book-ingest        # hand-off to Calibre-Web
+      - /volume1/Media/temp/downloads:/downloads            # MUST match qBittorrent's /downloads
     ports:
       - "192.168.68.56:8084:8084"    # LAN-only bind, not 0.0.0.0
