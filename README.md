@@ -1,4 +1,4 @@
-# nas-homelab
+# plexlab
 
 Configuration-as-code for a UGREEN DXP2800 running a media, book, and DNS stack for a household
 and a handful of friends.
