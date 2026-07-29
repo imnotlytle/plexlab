@@ -1,0 +1,30 @@
+# Calibre-Web Automated — ebook library + e-reader sharing.
+#
+# Why this image over plain calibre-web: it bundles the Calibre binaries, so it can
+# auto-convert formats (EPUB <-> MOBI/AZW3/KEPUB) and auto-ingest anything dropped into
+# the ingest folder. That matters here because the readers are mixed:
+#   * Kobo    -> native Kobo Sync (server behaves like the Kobo store)
+#   * Kindle  -> Send-to-Kindle by email (Kindles have no OPDS)
+#   * Phones/tablets/KOReader -> OPDS catalog
+#
+# Memory is capped so a big conversion can't starve Plex/ABS on this 8 GB box.
+
+services:
+  calibre-web:
+    image: crocodilestick/calibre-web-automated:latest
+    container_name: calibre-web
+    restart: unless-stopped
+    environment:
+      - PUID=1000
+      - PGID=10
+      - TZ=America/Chicago
+    volumes:
+      - /volume1/Config/calibre-web:/config
+      - /volume1/Media/Books/library:/calibre-library   # the Calibre library itself
+      - /volume1/Media/Books/ingest:/cwa-book-ingest    # drop files here -> auto-imported
+    ports:
+      - "8083:8083"
+    deploy:
+      resources:
+        limits:
+          memory: 1500M
