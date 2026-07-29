@@ -41,6 +41,14 @@ services:
       # --- Destinations: ebooks vs audiobooks go to DIFFERENT libraries ---
       - INGEST_DIR=/cwa-book-ingest                 # ebooks -> Calibre-Web
       - DESTINATION_AUDIOBOOK=/audiobooks           # audiobooks -> Audiobookshelf staging
+      # Audiobooks MUST be organised into per-book folders: Audiobookshelf treats a folder as
+      # a book, so the default "rename" (flat files in one directory) makes a multi-file
+      # audiobook unusable. "organize" applies TEMPLATE_AUDIOBOOK_ORGANIZE = {Author}/{Title}/{Title}.
+      - FILE_ORGANIZATION_AUDIOBOOK=organize
+      # Hardlinks default to TRUE but /downloads and /audiobooks are separate bind mounts, so
+      # every hardlink fails with EXDEV and falls back to copy. Their docs also say not to use
+      # hardlinks when the destination is a library folder.
+      - HARDLINK_TORRENTS_AUDIOBOOK=false
       - QBITTORRENT_CATEGORY=books
       - QBITTORRENT_CATEGORY_AUDIOBOOK=audiobooks   # matches the qBittorrent category already created
       - BOOK_LIBRARY_URL=https://books.patplex.net

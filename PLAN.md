@@ -418,3 +418,22 @@ Note: Overseerr is **already running** (`DefiantJazz`) — Phase 2 is adopt/veri
   Port binding changed from LAN-only back to `8084:8084` so the tunnel can reach it.
 - ⚠️ The credential now guarding an internet-facing download tool is Calibre-Web's
   `admin`/`admin123` — MUST be changed.
+
+### Audiobook organisation fix + Shelfmark auth auto-restart (2026-07-29)
+- **"Audiobooks not moving" was two separate things:**
+  1. NOT a bug — the two books in question (`It`, `Boy's life`) were still `downloading`. Fatherland
+     (13 files) and The Passage had already transferred fine.
+  2. A REAL bug — `FILE_ORGANIZATION_AUDIOBOOK` was `rename`, which dumps files FLAT into the
+     destination. Audiobookshelf treats a folder as a book, so a flat multi-file audiobook is
+     unusable. Set to `organize` → uses `TEMPLATE_AUDIOBOOK_ORGANIZE={Author}/{Title}/{Title}`.
+     Also set `HARDLINK_TORRENTS_AUDIOBOOK=false` (defaulted TRUE; /downloads and /audiobooks are
+     separate bind mounts so every hardlink failed EXDEV and fell back to copy anyway, and their
+     docs say don't hardlink into a library folder).
+  - Retro-fixed the already-flat files into `Robert Harris/Fatherland/` and `Justin Cronin/The Passage/`.
+- **NOTE:** qBittorrent category save paths (`/downloads/audiobooks`) are ignored because
+  Automatic Torrent Management is off, so everything saves to `/downloads` root. Harmless —
+  Shelfmark scans `/downloads` and still finds them — but that's why the subfolders stay empty.
+- **Auth auto-restart:** `scripts/shelfmark-auth-watch.sh` watches `app.db`'s mtime and restarts
+  `book-downloader` when it changes, so adding a Calibre-Web user no longer needs a manual restart.
+  Debounced (20 s settle) and rate-limited (90 s) so routine DB writes don't cause restart loops.
+  Logs to `/volume1/docker/_backups/shelfmark-auth-watch.log`.
