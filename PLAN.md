@@ -445,3 +445,42 @@ Note: Overseerr is **already running** (`DefiantJazz`) — Phase 2 is adopt/veri
   Verified Shelfmark can write there (38 existing author folders visible).
 - Note: Fatherland + The Passage ended up duplicated (Pat had already moved them into the library;
   a redundant copy remained in `to_tag`). ~2.4 GB reclaimable by deleting the `to_tag` copies.
+
+## Security review (2026-07-29)
+
+Audited the whole server: what's internet-exposed, auth on each, container privileges, LAN port
+bindings, secret file permissions.
+
+**Good news — all four public services correctly reject unauthenticated API calls (401):**
+overseerr / abs / books / shelfmark. Root pages return 200 (SPA shells), which is expected.
+
+**Fixed:**
+1. **World-readable secrets.** `/volume1/docker/vpn-qbittorrent/.env` (PIA username+password) and
+   `minecraft-atm9/data/.rcon-cli.env` were both mode **777**. Now 600. The PIA one had been set
+   to 600 originally — an overwrite via `cat >` reset it, so re-check after any redeploy.
+2. **Orphaned Portainer agent removed.** `portainer_agent` held a **read-write Docker socket**
+   (effectively root on the host), had **zero** connections in the previous week, and no Portainer
+   server was running anywhere. Pure attack surface — removed, port 9001 closed.
+3. **FlareSolverr un-exposed.** It was on `0.0.0.0:8191` — an unauthenticated headless browser
+   reachable from any device on the LAN (SSRF risk), and not even wired into Prowlarr
+   (IndexerProxies empty). Rebound to `127.0.0.1:8191`. Prowlarr runs host-network so it can still
+   reach it; verified LAN access now fails (000) while localhost returns 200.
+   NOTE: when wiring it in Prowlarr, use `http://127.0.0.1:8191`, NOT the LAN IP.
+4. **Weak password on an internet-facing service.** Audiobookshelf was reachable at
+   `abs.patplex.net` with `imnotlytle`/`admin123` — verified exploitable from the public internet
+   (login returned 200). Changed to Pat's chosen password; old one now 401.
+
+**Known/accepted:**
+- The *arr containers carry broad linuxserver default capabilities (CHOWN, DAC_OVERRIDE, SETUID…).
+  Not internet-exposed; changing them risks breaking the images. Left as-is.
+- `wireguard-pia` needs NET_ADMIN — required for the tunnel, expected.
+- `diun` has a READ-ONLY docker socket — needed to read image tags, acceptable.
+- LAN-exposed with no auth: `firefox-app-1` (5888/5999), `maintainerr` (6246), `tautulli` (8181),
+  `adguardhome` (3000). All LAN-only; a consumer router means no VLAN isolation available.
+- Passwords are now reused across services. Better than `admin123` but distinct passwords would
+  be stronger.
+
+**Not done / worth considering:**
+- Cloudflare Access or WAF rate-limiting in front of the public hostnames (would harden against
+  credential stuffing, but can break the Audiobookshelf/Prologue mobile apps).
+- Offsite backup still missing — `/volume1/docker/_backups` is same-pool only.
