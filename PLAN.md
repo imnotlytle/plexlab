@@ -204,3 +204,23 @@ Note: Overseerr is **already running** (`DefiantJazz`) — Phase 2 is adopt/veri
   would break ratio rules — must exempt those torrents (separate category, no seed limit) FIRST.
 - Audiobookshelf: user `imnotlytle`, password reset to admin123 (bcrypt via the container's
   /server/libs/bcryptjs; DB backed up). App URL: https://abs.patplex.net (works home + away).
+
+### Audiobookshelf "stream error undefined" — stale DB paths (2026-07-28)
+- Symptom: web player threw "stream error undefined"; many books missing from ABS.
+- Root cause: the Stephen King collection had been RENAMED on disk to
+  `YYYY - Title (read by Narrator)` but ABS never rescanned. 63/137 items pointed at folders
+  that no longer existed; 68 folders on disk were unindexed. ffmpeg failed because ABS couldn't
+  stat the source files, so it never wrote `/metadata/streams/<id>/files.txt`.
+- Fix: forced library scan (`POST /api/libraries/<id>/scan?force=1`) → 69 Added / 74 Updated /
+  63 Missing; then purged stale entries (`DELETE /api/libraries/<id>/issues`).
+  Result: 143 items, 0 missing. Streaming works.
+- **DO NOT bulk-rename the library.** Verified ABS parses `YYYY - Title (read by X)` correctly
+  into title/narrator/publishedYear (e.g. "2010 - Blockade Billy (novella - read by Craig Wasson)"
+  → title=Blockade Billy, narrator=Craig Wasson, year=2010). Plain-title folders (e.g.
+  `Frank Herbert/Dune`) yield NO narrator. The King naming is the better convention.
+  Renaming also resets listening progress (new item IDs) and requires a rescan.
+- LESSON: after ANY folder rename in the audiobook library, run an ABS scan or items go stale.
+- Audiobook ORDER audit: `scripts/audiobook-order-check.py`. Real finding = Turtledove "Darkness"
+  series has SCRAMBLED track tags (e.g. Into the Darkness: ...11,13,14,15,12,16... so ch15 plays
+  before ch12) — still UNFIXED, offered to retag from filenames. King multi-part "gaps" are FALSE
+  positives (tracks number continuously across part folders).
