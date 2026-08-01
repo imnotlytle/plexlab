@@ -525,3 +525,23 @@ Manually imported so far: Wool, Boy's Life, It, The Postman.
 - NOTE: the earlier lean-1080p size tuning (max ~45 MB/min) now rejects 4 GB 1080p releases like
   CAKES as "larger than maximum allowed 2.3 GB". Fine while targeting 2160p for this show, but
   that limit is why some 1080p releases get skipped.
+
+### AdGuard hardening — blocklists + bypass prevention (2026-08-01)
+Symptom: "ads still showing on a recipe site". Diagnosis found AdGuard was working correctly the
+whole time (all major ad networks resolving to 0.0.0.0), and the desktop's Wi-Fi "ISP DNS" was a
+red herring — **the Wi-Fi adapter is Disconnected**, so those were stale profile values, never in
+use. Ethernet was on AdGuard throughout. The ads were first-party (served from the site's own
+domain), which DNS blocking cannot distinguish from content.
+- Was running the DEFAULT blocklist only (~161k rules). Added OISD Big (330,788),
+  HaGeZi Multi PRO (216,256), AdAway (6,540), HaGeZi Windows-Office Tracking (389).
+- **Added HaGeZi DoH-VPN-Proxy Bypass (17,536 rules)** — blocks `dns.google`,
+  `cloudflare-dns.com`, `dns.quad9.net`, Mozilla's resolver etc. so a device with encrypted DNS
+  baked in CANNOT bypass AdGuard; it falls back to the network resolver. This is what makes the
+  blocking actually network-wide rather than opt-in.
+  VERIFIED SAFE: AdGuard's own upstreams are those same hostnames, but it reaches them via
+  bootstrap IPs, so blocking them for clients does not break resolution. Confirmed google.com,
+  github.com, netflix.com, plex.tv, amazon.com all still resolve with 0 upstream errors.
+- **Total: 733,298 rules** (up from ~161k).
+- CEILING (architectural, not fixable by config): DNS cannot block YouTube/Twitch/Facebook in-feed
+  ads or first-party ads — they share a domain with the content. uBlock Origin in the browser is
+  the complement; AdGuard covers devices that can't run an extension.
