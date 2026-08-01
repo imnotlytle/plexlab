@@ -504,3 +504,24 @@ torrents complete with nobody watching them.
 - `scripts/watch-audiobook-imports.sh` exists to make this visible — it flags
   `[NOT IMPORTED]` per finished torrent rather than failing silently.
 Manually imported so far: Wool, Boy's Life, It, The Postman.
+
+### Sonarr "not auto-grabbing" was actually MALWARE PROTECTION (2026-08-01)
+- Symptom: Silo S03E05 aired 2026-07-31 and never appeared. Automation looked broken.
+- Reality: Sonarr **did** grab it (2026-07-30 21:15, `Silo S03E05 MULTI 1080p WEB H264-HiggsBoson`),
+  the download completed, and Sonarr then **refused to import it**:
+  `"Caution: Found executable file with extension: '.exe'"`.
+- Inspected the payload: the entire 1.2 GB "episode" was a SINGLE Windows executable,
+  `Silo S03E05 MULTI 1080p WEB H264-HiggsBoson.exe` — no video file at all. Straight malware
+  disguised as a TV release. Sonarr's protection worked exactly as intended.
+- Removed from the queue with `removeFromClient=true&blocklist=true` (deletes files AND stops
+  Sonarr re-grabbing that release). Verified no `.exe` remains in /downloads.
+- LESSON: an episode stuck at `importPending` with a `statusMessages` warning is worth reading —
+  it is often a rejected-for-a-reason release, not a stuck import. `MULTI` releases from unknown
+  groups are a common malware vector.
+- Follow-up: Silo uses quality profile **7 ("Ultra HD/1080p")**, but the Dolby Vision / Atmos /
+  HDR10+ custom formats had only been scored on profile **5**. Added them to profile 7
+  (DV 1500 / Atmos 400 / HDR10+ 300) so this show now prefers DV+Atmos automatically.
+  Re-searched and grabbed `Silo S03E05 Memory 2160p ATVP WEB-DL DDP5.1 Atmos DV HDR` (9.8 GB).
+- NOTE: the earlier lean-1080p size tuning (max ~45 MB/min) now rejects 4 GB 1080p releases like
+  CAKES as "larger than maximum allowed 2.3 GB". Fine while targeting 2160p for this show, but
+  that limit is why some 1080p releases get skipped.
