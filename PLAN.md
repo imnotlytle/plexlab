@@ -545,3 +545,25 @@ domain), which DNS blocking cannot distinguish from content.
 - CEILING (architectural, not fixable by config): DNS cannot block YouTube/Twitch/Facebook in-feed
   ads or first-party ads — they share a domain with the content. uBlock Origin in the browser is
   the complement; AdGuard covers devices that can't run an extension.
+
+### iCloud Private Relay was bypassing AdGuard on the iPhone (2026-08-01)
+Per-client stats showed the iPhone (192.168.68.52) at **4.4% blocked** vs the PC at 58.6%. Its top
+queries were `mask.apple-dns.net` and `mask.icloud.com` — **iCloud Private Relay**, which tunnels
+Safari traffic through Apple's proxy and bypasses network DNS entirely.
+- The HaGeZi bypass list already blocked `mask.icloud.com`/`mask-h2.icloud.com`, but with the
+  default `0.0.0.0` response, and `mask.apple-dns.net` was still resolving — so the fallback was
+  half-applied and ungraceful (device waits for a connect timeout).
+- Apple's DOCUMENTED method for a network to disable Private Relay is to return **NXDOMAIN**.
+  Added user_rules:
+    `||mask.icloud.com^$dnsrewrite=NXDOMAIN`
+    `||mask-h2.icloud.com^$dnsrewrite=NXDOMAIN`
+    `||mask.apple-dns.net^$dnsrewrite=NXDOMAIN`
+  Verified all three return NXDOMAIN; apple.com / icloud.com / google.com / netflix.com unaffected.
+  Private Relay fails OPEN — connectivity is not broken, iOS just shows a one-time notice.
+- GOTCHA writing these rules: the rule text contains `||` and `^$`, which breaks a `sed` using `|`
+  as delimiter AND gets mangled through ssh→docker nested heredocs. Write the edit to a script file
+  first, mount /tmp into the throwaway container, and use `awk` with `\x27` for quotes.
+- Note the other 0%-blocked clients (.54/.55/.62) are NOT a problem — they are idle devices making
+  only legitimate Apple/Google/Home-Assistant queries.
+- Browser-layer plan: uBlock Origin on desktop; **Brave on iOS** (Pat doesn't use Safari, and iOS
+  content blockers only work in Safari — Brave has blocking built in and also kills in-app YouTube ads).
