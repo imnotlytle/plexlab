@@ -567,3 +567,16 @@ Safari traffic through Apple's proxy and bypasses network DNS entirely.
   only legitimate Apple/Google/Home-Assistant queries.
 - Browser-layer plan: uBlock Origin on desktop; **Brave on iOS** (Pat doesn't use Safari, and iOS
   content blockers only work in Safari — Brave has blocking built in and also kills in-app YouTube ads).
+
+### Why a newly added show doesn't download itself (2026-08-01)
+Sonarr's **RSS Sync only sees NEWLY POSTED releases** — it polls indexers every 15 min for what has
+appeared since the last check. It never searches the back catalogue. So a show whose episodes
+already aired stays at 0 files forever unless a search is explicitly triggered.
+- **Fix:** tick **"Start search for missing episodes"** in the Add Series dialog. Without it,
+  Sonarr adds the series and waits for future episodes only. (Dark Winds was added 2026-08-01 with
+  0/34 and sat idle for exactly this reason; ran a SeriesSearch manually.)
+- **Reading the counts:** Sonarr's `totalEpisodeCount` includes unaired episodes AND specials, so
+  "Better Call Saul 63/273" is NOT a 200-episode gap. Use `/wanted/missing` filtered to
+  `airDateUtc < now` for the real number.
+- Actual backlog at this point: **358 aired-but-missing episodes across 11 shows** — dominated by
+  Black Clover (170) and The Walking Dead (110). Pat chose NOT to bulk-search these.
