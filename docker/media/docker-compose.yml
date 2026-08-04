@@ -1,0 +1,104 @@
+# Media stack — adopted into compose from UGOS GUI-created containers on 2026-08-03.
+#
+# These six had NO compose file, so every update meant hand-rebuilding the container. Container
+# names are preserved exactly (including the odd GUI-generated ones like MsCobel/DefiantJazz) so
+# nothing referencing them breaks.
+#
+# All run network_mode: host — that is how they were created, and Plex in particular needs it for
+# DLNA/GDM discovery. Because of host networking there are no port mappings; each app listens on
+# its own port directly (Sonarr 8989, Radarr 7878, Readarr 8787, Prowlarr 9696, Overseerr 5055,
+# Plex 32400).
+
+services:
+  sonarr:
+    image: linuxserver/sonarr:latest
+    container_name: linuxserver_sonarr-1
+    network_mode: host
+    restart: always
+    environment:
+      - PUID=1000
+      - PGID=10
+      - TZ=America/Chicago
+    volumes:
+      - /volume1/Config/Sonarr:/config
+      - /volume1/Media/TV:/TV
+      - /volume1/Media/temp/downloads:/downloads   # MUST match qBittorrent's /downloads
+
+  radarr:
+    image: linuxserver/radarr:latest
+    container_name: linuxserver_radarr-1
+    network_mode: host
+    restart: always
+    environment:
+      - PUID=1000
+      - PGID=10
+      - TZ=America/Chicago
+    volumes:
+      - /volume1/Config/Radarr:/config
+      - /volume1/Media/Movies:/Movies
+      - /volume1/Media/temp/downloads:/downloads
+
+  prowlarr:
+    image: linuxserver/prowlarr:latest
+    container_name: PatPlexProwlarrv2
+    network_mode: host
+    restart: always
+    environment:
+      - PUID=1000
+      - PGID=10
+      - TZ=America/Chicago
+    volumes:
+      - /volume1/Config/Prowlarr:/config
+      - /volume1/Media/TV:/TV
+      - /volume1/Media/temp/downloads:/downloads
+
+  # Readarr is RETIRED upstream (metadata provider dead) and is deliberately PINNED to the last
+  # working nightly. Do not move this to :latest — that tag is no longer maintained.
+  readarr:
+    image: linuxserver/readarr:0.4.11-nightly
+    container_name: linuxserver_readarr-1
+    network_mode: host
+    restart: always
+    environment:
+      - PUID=1000
+      - PGID=10
+      - TZ=America/Chicago
+    volumes:
+      - /volume1/Config/Readarr:/config
+      - /volume1/Media/Audio:/Audio
+      - /volume1/Media/temp/downloads:/downloads
+
+  overseerr:
+    image: linuxserver/overseerr:latest
+    container_name: DefiantJazz
+    network_mode: host
+    restart: always
+    environment:
+      - PUID=1000
+      - PGID=10
+      - TZ=America/Chicago
+    volumes:
+      - /volume1/Config/overseerr:/config
+
+  plex:
+    image: linuxserver/plex:latest
+    container_name: linuxserver_plex-1
+    network_mode: host
+    restart: always
+    environment:
+      - PUID=1000
+      - PGID=10
+      - TZ=America/Chicago
+      - VERSION=docker
+    # /dev/dri is Intel QuickSync on the N100 — this is what makes hardware transcoding work.
+    # Losing this device silently drops Plex back to CPU transcoding, which this chip cannot do
+    # well. Keep it.
+    devices:
+      - /dev/dri:/dev/dri
+    volumes:
+      - /volume1/Config/Plex:/config
+      - /volume1/Media/Movies:/Movies
+      - /volume1/Media/TV:/TV
+      - /volume1/Media/Audio/Regular:/Audio
+      - /volume1/DATA/Plex:/DATA
+      - /volume1/transcode:/transcode

@@ -580,3 +580,31 @@ already aired stays at 0 files forever unless a search is explicitly triggered.
   `airDateUtc < now` for the real number.
 - Actual backlog at this point: **358 aired-but-missing episodes across 11 shows** — dominated by
   Black Clover (170) and The Walking Dead (110). Pat chose NOT to bulk-search these.
+
+### Full container update + media stack adopted into compose (2026-08-03)
+Updated every container. Split by how each was managed:
+- **12 compose-managed** — straightforward `docker compose pull && up -d`. Updated: tautulli,
+  book-downloader, calibre-web, audiobookshelf, cloudflared-media, flaresolverr, qbittorrent,
+  wireguard-pia. (adguard/maintainerr/diun were already current.)
+- **6 GUI-created with NO compose file** (Sonarr, Radarr, Readarr, Prowlarr, Overseerr, Plex) —
+  these were the ones showing updates. **Adopted into `docker/media/docker-compose.yml`**, so
+  future updates are one command instead of a hand-rebuild. Original container names preserved
+  (`linuxserver_sonarr-1`, `PatPlexProwlarrv2`, `DefiantJazz`, …) so nothing referencing them breaks.
+
+**Pre-update safety:** captured full `docker inspect` of all six to
+`/volume1/docker/_backups/container-specs/`, and verified today's ROOT cron backup contained the
+files a user-run backup cannot read (AdGuard config, PIA token, Plex config, *arr DBs).
+NOTE: running `backup-configs.sh` as the normal user exits rc=2 and SKIPS those root-owned paths —
+the cron copy (which runs as root) is the complete one.
+
+**Two things that had to be preserved and were verified after:**
+1. **Plex `/dev/dri` passthrough** — Intel QuickSync on the N100. Losing it silently drops Plex to
+   CPU transcoding. Confirmed `card0` + `renderD128` present in the new container.
+2. **VPN kill-switch** — re-tested after updating wireguard-pia/qbittorrent: exit IP is PIA's,
+   and stopping the tunnel leaves qBittorrent with zero egress. Port forwarding re-synced.
+
+**Readarr deliberately left PINNED** at `0.4.11-nightly` (retired upstream; `:latest` is unmaintained).
+
+**Post-update verification:** Sonarr 4.0.19.2979 and Radarr 6.3.0.10514 both connection-test OK to
+qBittorrent; Prowlarr 2.5.2.5491 kept all 5 indexers; Plex serves all 3 libraries; all four public
+hostnames return 200; DNS and ad-blocking unaffected.
