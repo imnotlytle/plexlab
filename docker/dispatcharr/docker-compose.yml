@@ -1,0 +1,38 @@
+# Dispatcharr — IPTV bridge for Plex Live TV & DVR.
+#
+# WHY THIS EXISTS: Plex has no native M3U/IPTV input. Its Live TV & DVR only talks to
+# HDHomeRun-style tuners. Dispatcharr ingests the provider's M3U + XMLTV EPG and presents itself
+# to Plex as an HDHomeRun device, which is the only shape Plex will accept.
+#
+# The provider's M3U URL is entered in the Dispatcharr web UI and lives in its own database under
+# /volume1/Config/Dispatcharr — deliberately NOT in this file or an .env, so no credentials or
+# subscription URLs can end up in git.
+#
+# LAN ONLY. Do not add this to the Cloudflare tunnel. Re-serving a provider's streams to the
+# internet breaks their terms and turns a private setup into a public redistribution point.
+
+services:
+  dispatcharr:
+    image: ghcr.io/dispatcharr/dispatcharr:latest
+    container_name: dispatcharr
+    restart: unless-stopped
+    environment:
+      - DISPATCHARR_ENV=aio          # single container; bundles its own PostgreSQL + Redis
+      - REDIS_HOST=localhost
+      - CELERY_BROKER_URL=redis://localhost:6379/0
+      - DISPATCHARR_LOG_LEVEL=info
+      - TZ=America/Chicago
+    volumes:
+      # Bind mount rather than a named volume so scripts/backup-configs.sh, which snapshots
+      # /volume1/Config, picks this up with no extra work.
+      - /volume1/Config/Dispatcharr:/data
+    ports:
+      - "9191:9191"                  # web UI + HDHomeRun emulation endpoint
+    # This NAS has 8 GB total and runs Plex, the *arr stack and a VPN'd qBittorrent. The AIO image
+    # is Postgres + Redis + Celery + Django in one container, which will happily grow into whatever
+    # is free. There is no swap headroom to absorb that, so the cap is what stops Dispatcharr from
+    # starving Plex in the middle of a stream. Do not remove it without checking `free -h` first.
+    mem_limit: 1500m
+    # Deliberately NO /dev/dri. Dispatcharr can transcode via VA-API, but Plex already owns the
+    # Intel GPU and does it well. Keeping one consumer of the GPU means one place to debug when
+    # a transcode misbehaves. Dispatcharr just proxies the stream; Plex transcodes.

@@ -941,3 +941,47 @@ Two other gotchas worth keeping:
 
 Net after restores: 15 non-premium movies shrinking, ~200 GB reclaimed. Originals stay in
 `/recycle` for 14 days.
+
+### IPTV in Plex via Dispatcharr (2026-08-09)
+Pat has a paid IPTV subscription and wanted the channels inside Plex, with recording.
+
+**Plex has no native M3U/IPTV input** — Live TV & DVR only talks to HDHomeRun-style tuners
+(https://support.plex.tv/articles/225877427-supported-dvr-tuners-and-antennas/). So a bridge is
+required that ingests M3U/Xtream + XMLTV and impersonates an HDHomeRun.
+
+Pat considered buying Emby as a fallback. Not needed: **Plex Pass here is lifetime and active**
+(confirmed via `plex.tv/api/v2/user` → `plan: lifetime`, role `plexpass`), and the same bridge
+serves Plex, Emby and Jellyfin identically — no lock-in either way.
+
+**Chose Dispatcharr** (`ghcr.io/dispatcharr/dispatcharr:latest`, v0.28.2 released 2026-07-23,
+actively developed) over **Threadfin**, whose last tagged release is v1.2.37 from **Sept 2024** —
+unmaintained for ~2 years. Threadfin is far lighter (~50 MB vs ~1 GB), which mattered here; see
+the memory note below.
+
+`docker/dispatcharr/docker-compose.yml`, AIO mode (bundles its own Postgres + Redis), port 9191,
+bind-mounted at `/volume1/Config/Dispatcharr` so `backup-configs.sh` picks it up for free.
+
+**`mem_limit: 1500m` is load-bearing, not decorative.** This is an 8 GB box already running Plex,
+the *arr stack and a VPN'd qBittorrent. Dispatcharr **idles at ~1.0 GiB** and free RAM dropped from
+2.3 GB to ~1.5 GB just by starting it. Without the cap it can grow into whatever is free and
+starve Plex mid-stream. If this box starts swapping under a live transcode, Dispatcharr is the
+first thing to cut — swapping to Threadfin is the escape hatch.
+
+**No `/dev/dri` passthrough.** Dispatcharr can transcode via VA-API but Plex already owns the Intel
+GPU (`HardwareAcceleratedCodecs=1`, verified). One GPU consumer = one place to debug. Dispatcharr
+proxies, Plex transcodes.
+
+**LAN only — deliberately NOT on the Cloudflare tunnel.** Re-serving a provider's streams publicly
+breaks their terms and turns this into a redistribution point. `iptv.home` added via
+`add-adguard-rewrite.sh`.
+
+Recordings target `/volume1/Media/LiveTV`, a **sibling** of Movies/TV — never inside them, or
+Sonarr/Radarr and the Maintainerr size rule would treat recordings as library content.
+
+**Provider credentials are entered in the Dispatcharr web UI only** and live in its own DB. They
+never touch a compose file, an `.env`, or git.
+
+Pre-flight checks that saved guesswork later: the provider domain is **not** caught by AdGuard's
+733k rules, and is reachable from inside the container (401 at root = expected, wants auth).
+
+Open: nothing prunes DVR recordings — the Maintainerr rule covers the Movies library only.
