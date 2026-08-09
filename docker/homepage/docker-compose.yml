@@ -1,0 +1,28 @@
+# Homepage — one dashboard for the whole box.
+#
+# WHY: ~20 services across a dozen ports, plus two .home names that are easy to mix up
+# (calibre.home:8083 = ebooks, books.home:13378 = audiobooks — a documented gotcha in PLAN.md).
+#
+# HOMEPAGE_ALLOWED_HOSTS is REQUIRED on recent versions — without it Homepage refuses requests with
+# a host-validation error and the page just fails to load. List every name/IP:port used to reach it.
+#
+# No docker socket is mounted. Homepage can auto-discover containers via the socket, but that grants
+# read access to the whole Docker API — the 2026-07-29 security review removed the Portainer agent
+# for exactly that reason. Services are listed explicitly in services.yaml instead.
+
+services:
+  homepage:
+    image: ghcr.io/gethomepage/homepage:latest
+    container_name: homepage
+    restart: unless-stopped
+    environment:
+      - TZ=America/Chicago
+      - HOMEPAGE_ALLOWED_HOSTS=192.168.68.56:3003,home.home:3003,localhost:3003
+    volumes:
+      - /volume1/Config/homepage:/app/config
+    ports:
+      - "192.168.68.56:3003:3000"
+    deploy:
+      resources:
+        limits:
+          memory: 256M

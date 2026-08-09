@@ -1,0 +1,38 @@
+# Recyclarr — keeps Sonarr/Radarr custom formats in sync with the TRaSH Guides.
+#
+# WHY THIS EXISTS: on 2026-08-01 the Dolby Vision / Atmos / HDR10+ formats were scored on Sonarr
+# quality profile 5 but not profile 7, so Silo silently never preferred DV until it was found by
+# hand. The audit run while installing this found the SAME drift still live in Radarr — profile 7
+# carries 567 of 613 movies and has no DV/Atmos/HDR10+ scores at all. Recyclarr makes profile
+# scoring declarative so it cannot drift per-profile again.
+#
+# Runs in cron mode (the image's default), so there is no standing web service and effectively no
+# idle RAM cost. CRON_SCHEDULE defaults to @daily; set explicitly here for clarity.
+#
+# The official image does NOT support PUID/PGID — it uses `user:` instead. 1000:10 matches the
+# UID/GID every other container on this box runs as.
+#
+# network_mode: host so it can reach Sonarr on 127.0.0.1:8989 and Radarr on 127.0.0.1:7878, which
+# are host-networked themselves.
+#
+# API keys come from a gitignored .env beside this file (chmod 600) and are referenced in
+# recyclarr.yml via !env_var — never inline them in the YAML, which IS committed.
+
+services:
+  recyclarr:
+    image: ghcr.io/recyclarr/recyclarr:8
+    container_name: recyclarr
+    network_mode: host
+    user: 1000:10
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      - TZ=America/Chicago
+      - CRON_SCHEDULE=0 5 * * *   # daily 05:00, after the 04:15 config backup
+    volumes:
+      - /volume1/Config/recyclarr:/config
+    deploy:
+      resources:
+        limits:
+          memory: 256M

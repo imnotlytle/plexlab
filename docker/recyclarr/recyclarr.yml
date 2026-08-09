@@ -1,0 +1,55 @@
+# Recyclarr config — DELIBERATELY CONSERVATIVE.
+#
+# This file is committed; secrets are not. API keys come from the gitignored .env via !env_var.
+#
+# THREE THINGS ARE OMITTED ON PURPOSE. The stock TRaSH templates include them, and each one would
+# silently undo tuning that PLAN.md records as a considered decision:
+#
+#   1. `quality_definition:` — OMITTED. The stock `type: movie` definition would overwrite the lean
+#      1080p sizing (~22 MB/min preferred, ~45 max) set on 2026-07-27 to stop 11 GB grabs.
+#
+#   2. `quality_profiles:` — OMITTED. The templates target a TRaSH profile by trash_id, which
+#      CREATES a new profile rather than editing the ones actually in use (Radarr profile 7 carries
+#      567 of 613 movies; Sonarr profile 7 carries 82 of 89 series).
+#
+#   3. `reset_unmatched_scores: enabled: true` — OMITTED. It zeroes every custom format score not
+#      named in this config, which would wipe the YTS/EZTV penalties and the DV/Atmos/HDR10+ scores.
+#
+# What this config DOES do: keep the custom format DEFINITIONS (the matching rules) up to date from
+# the TRaSH Guides. Scores stay exactly where Pat set them, on the profiles Pat set them on.
+#
+# CURRENT STATUS — THIS CONFIG IS A NO-OP ON PURPOSE.
+# `sync --preview` reports "No changes" for both instances. Recyclarr only syncs custom format
+# definitions for formats referenced by a quality profile it manages, so with `quality_profiles:`
+# omitted there is nothing for it to do. That is the safe starting state, not a mistake.
+# To make it useful, Recyclarr has to be given a profile to own — see PLAN.md for the open decision.
+# Until then the scheduled container is deliberately NOT started.
+#
+# NOTE ON NAME COLLISIONS: Radarr and Sonarr each already contain hand-made formats named
+# "Dolby Vision", "HDR10Plus" and "Atmos". The TRaSH HDR and Audio groups contain formats with
+# matching names, so syncing REPLACES those definitions with the guide-maintained versions. The
+# scores are stored on the quality profile, not on the format, so scoring is unaffected — but this
+# is a real change and was previewed before being applied.
+
+radarr:
+  # Instance names must be unique across BOTH the radarr: and sonarr: blocks — reusing "main"
+  # in each fails with "Duplicate Instances".
+  radarr-main:
+    base_url: http://127.0.0.1:7878
+    api_key: !env_var RADARR_API_KEY
+
+    # Never delete formats this config does not mention — the YTS penalties are hand-made.
+    delete_old_custom_formats: false
+
+    custom_format_groups:
+      skip:
+        - d9cc9a504e5ede6294c8b973aad4f028  # [Streaming Services] General — not used here
+
+sonarr:
+  sonarr-main:
+    base_url: http://127.0.0.1:8989
+    api_key: !env_var SONARR_API_KEY
+
+    delete_old_custom_formats: false
+    # No skip list here: that group id is Radarr-only, and Sonarr warns
+    # "does not match any known CF group" if it is repeated.

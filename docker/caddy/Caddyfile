@@ -1,0 +1,23 @@
+# Caddy config. Deployed to /volume1/Config/caddy/Caddyfile.
+#
+# Certificates come from Let's Encrypt via the Cloudflare DNS-01 challenge, so no inbound port is
+# ever opened and nothing is published through the Cloudflare Tunnel. These hostnames resolve to
+# 192.168.68.56 only because AdGuard rewrites them locally (split-horizon DNS) — from outside the
+# house they do not resolve to anything useful.
+
+{
+	# DNS-01 challenge. Token needs Zone:DNS:Edit on patplex.net only.
+	acme_dns cloudflare {env.CF_API_TOKEN}
+
+	# UGOS Pro owns 80 and 443 on this box, so serve TLS here instead.
+	https_port 8443
+
+	# Do not try to bind :80 for HTTP->HTTPS redirects; that port is not ours.
+	auto_https disable_redirects
+}
+
+vault.patplex.net {
+	reverse_proxy 192.168.68.56:8222 {
+		header_up X-Real-IP {remote_host}
+	}
+}

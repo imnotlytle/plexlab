@@ -1,0 +1,19 @@
+# Homepage settings. Deployed to /volume1/Config/homepage/settings.yaml.
+title: NAS
+headerStyle: boxed
+layout:
+  Media:
+    style: row
+    columns: 3
+  Media automation:
+    style: row
+    columns: 4
+  Books:
+    style: row
+    columns: 3
+  Downloads:
+    style: row
+    columns: 3
+  Infrastructure:
+    style: row
+    columns: 3

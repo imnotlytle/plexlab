@@ -1,0 +1,32 @@
+# Bazarr — automatic subtitles for the Sonarr/Radarr libraries.
+#
+# PATH ALIGNMENT (the recurring failure mode on this box — see PLAN.md):
+# Sonarr stores series paths as /TV/... and Radarr stores movie paths as /Movies/... . Bazarr reads
+# those paths straight out of their APIs and then opens the files itself, so it MUST see the exact
+# same container paths. The two mounts below are copied verbatim from docker/media/docker-compose.yml
+# — do not "tidy" them into a single /media mount or every subtitle lookup will silently 404.
+#
+# network_mode: host matches the rest of the media stack and lets Bazarr reach Sonarr and Radarr on
+# 127.0.0.1 (8989 / 7878). Web UI lands on :6767.
+#
+# No /downloads mount: Bazarr works on the imported library, not on in-flight torrents.
+
+services:
+  bazarr:
+    image: linuxserver/bazarr:latest
+    container_name: bazarr
+    network_mode: host
+    restart: unless-stopped
+    environment:
+      - PUID=1000
+      - PGID=10
+      - TZ=America/Chicago
+    volumes:
+      - /volume1/Config/Bazarr:/config
+      - /volume1/Media/TV:/TV           # MUST match Sonarr
+      - /volume1/Media/Movies:/Movies   # MUST match Radarr
+    # Capped like calibre-web: subtitle sync/OCR can spike, and this box has no RAM to spare.
+    deploy:
+      resources:
+        limits:
+          memory: 512M

@@ -24,6 +24,12 @@ only in gitignored `.env` files on the NAS itself and are never committed.
 The N100 matters more than it looks: it is fast enough to serve media but too slow for heavy
 transcoding or OpenVPN at line rate. Both facts drove real decisions below.
 
+**RAM is the binding constraint, not storage.** Disk sits around 48% used with ~12 TB free, but the
+8 GB of RAM runs at roughly 2.1 GB available with several GB of swap in use. New containers are
+memory-capped via `deploy.resources.limits` for this reason, and it is why Immich and Paperless-ngx
+are not installed. The DXP2800 has a **single** DDR5 SO-DIMM slot, 8 GB stock, officially supported
+to 16 GB — that upgrade is the unlock.
+
 ---
 
 ## Architecture
@@ -40,12 +46,13 @@ transcoding or OpenVPN at line rate. Both facts drove real decisions below.
    ┌────┴──────────────┴──────────────┴───────────────┴────┐
    │                      UGREEN NAS                        │
    │                                                        │
-   │  media:   Plex · Overseerr · Sonarr · Radarr           │
+   │  media:   Plex · Overseerr · Sonarr · Radarr · Bazarr  │
    │           Prowlarr · Tautulli · Maintainerr            │
    │                                                        │
    │  books:   Calibre-Web · Shelfmark · Audiobookshelf     │
    │                                                        │
    │  infra:   AdGuard Home (network DNS) · Diun            │
+   │           Uptime Kuma · Homepage · Vaultwarden         │
    │                                                        │
    │  ┌──────────────────────────────────────────────┐      │
    │  │ wireguard-pia  ← only internet exit          │      │
@@ -78,12 +85,22 @@ inbound holes. Four hostnames are published; everything else is LAN-only.
 | Plex | 32400 | Media server |
 | qBittorrent | 8080 | Behind the PIA VPN kill-switch |
 | Prowlarr | 9696 | Indexer manager |
-| Sonarr / Radarr / Readarr | 8989 / 7878 / 8787 | TV / movies / books (Readarr is retired upstream) |
+| Sonarr / Radarr | 8989 / 7878 | TV / movies |
+| Readarr | 8787 | Retired upstream — **stopped**, config kept for its 1360-book DB |
+| Bazarr | 6767 | Subtitles for the Sonarr/Radarr libraries |
 | AdGuard Home | 3000, DNS on 53 | Network-wide DNS + ad blocking |
 | Tautulli | 8181 | Plex analytics |
 | Maintainerr | 6246 | Rule-based library cleanup |
+| Uptime Kuma | 3001 | Service monitoring + alerting |
+| Homepage | 3003 | Dashboard for everything on this table |
+| Vaultwarden | via Caddy | `https://vault.patplex.net:8443` — LAN only, deliberately **not** tunnelled |
+| Caddy | 8443 | TLS termination (Let's Encrypt via Cloudflare DNS-01) for services needing HTTPS |
+| Recyclarr | — | Syncs TRaSH Guides custom formats — installed, **not yet scheduled** |
 | Diun | — | Emails when container images have updates |
 | FlareSolverr | 127.0.0.1:8191 | Cloudflare solver for indexers — **localhost only** |
+
+Uptime Kuma, Homepage and Vaultwarden are bound to `192.168.68.56` specifically rather than
+`0.0.0.0`, so they are reachable on the LAN but never accidentally published.
 
 Convenience hostnames via AdGuard (`plex.home`, `calibre.home`, `qbit.home`, `tautulli.home`, …)
 all resolve to the NAS; append the port.
@@ -197,3 +214,20 @@ Things that cost real debugging time here:
   a romance novel with a similar title. Verify covers visually, not by trusting the matcher.
 - **`.m4b` and `.mp3` contain digits.** Strip the extension before parsing a track number out of a
   filename, or every file scores the same.
+- **A Bazarr language profile missing `audio_only_include` breaks it silently.** The profile saves,
+  the UI looks right, and every "index missing subtitles" pass then dies with a `KeyError` — so
+  Bazarr sits there having decided nothing is missing. Full item schema:
+  `id, language, audio_exclude, audio_only_include, hi, forced`.
+- **Bazarr profiles are saved through `POST /api/system/settings`**, not
+  `/api/system/languages/profiles` — that route is GET-only and returns 405.
+- **Don't grep Bazarr's JSON.** Titles contain braces and commas; a shell parse reported 413 movies
+  where there were 572. Use a real JSON parser.
+- **Recyclarr instance names must be unique across the `radarr:` and `sonarr:` blocks.** Calling
+  both `main` fails with "Duplicate Instances".
+- **Uptime Kuma's ntfy alerts fail silently on `port` and `dns` monitors.** The provider builds a
+  "view" button from the monitor's own `url` column, which those types leave empty, so ntfy rejects
+  the whole notification with a 400. The monitor records DOWN correctly and simply never tells you.
+  Setting Primary Base URL does *not* fix it. Give every non-HTTP monitor a `url`.
+- **Vaultwarden cannot work over plain HTTP, even on the LAN.** Browsers only expose the web crypto
+  APIs it needs in a secure context. This is a browser rule, not a setting — it needs a reverse
+  proxy terminating TLS.

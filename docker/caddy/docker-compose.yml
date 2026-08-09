@@ -1,0 +1,39 @@
+# Caddy — TLS termination for LAN-only services that require a secure context.
+#
+# WHY: Vaultwarden's web vault refuses to work over plain HTTP. Browsers only expose the Web Crypto
+# APIs it depends on in a secure context, and that rule applies on a LAN too — it is not something
+# a setting can override. Upstream's recommended fix is a reverse proxy terminating TLS.
+#
+# WHY PORT 8443, NOT 443: UGOS Pro's own web server already owns 0.0.0.0:80 and 0.0.0.0:443 on this
+# box. Those belong to the NAS OS and are not ours to move, so Caddy serves on 8443. Costs nothing
+# functionally — certificates come from DNS-01, which needs no inbound port at all.
+#
+# WHY DNS-01: it proves domain ownership via a Cloudflare DNS record instead of an inbound HTTP
+# request, so this gets a REAL Let's Encrypt certificate while staying entirely LAN-only. No
+# Cloudflare Tunnel route is added; nothing here is reachable from the internet.
+#
+# The image is Caddy built with the Cloudflare DNS module — stock Caddy cannot do DNS-01 against
+# Cloudflare. https://github.com/CaddyBuilds/caddy-cloudflare
+#
+# CF_API_TOKEN lives in a gitignored .env beside this file (chmod 600). It needs Zone:DNS:Edit on
+# patplex.net ONLY — not a Global API Key, which would be full account access.
+
+services:
+  caddy:
+    image: ghcr.io/caddybuilds/caddy-cloudflare:latest
+    container_name: caddy
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      - TZ=America/Chicago
+    volumes:
+      - /volume1/Config/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - /volume1/Config/caddy/data:/data      # certificates live here — persist or you re-issue
+      - /volume1/Config/caddy/config:/config
+    ports:
+      - "192.168.68.56:8443:8443"             # LAN IP only, like every other service here
+    deploy:
+      resources:
+        limits:
+          memory: 128M

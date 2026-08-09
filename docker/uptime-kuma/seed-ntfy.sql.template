@@ -1,0 +1,32 @@
+-- Uptime Kuma ntfy notification channel.
+--
+-- TEMPLATE ONLY. `__NTFY_TOPIC__` is substituted at apply time and the real topic is NOT committed:
+-- ntfy.sh topics have no access control, so anyone who knows the topic name can read every alert
+-- (which leaks service names and the patplex.net hostnames). The live value is in the Uptime Kuma
+-- DB and in /volume1/docker/scripts/.creds.
+--
+-- Apply:
+--   sed "s/__NTFY_TOPIC__/$topic/" seed-ntfy.sql.template > /tmp/ntfy.sql
+--   docker exec -i uptime-kuma sqlite3 /app/data/kuma.db < /tmp/ntfy.sql
+--   docker restart uptime-kuma
+--
+-- Priority 4 = "high": makes a sound and shows a heads-up notification, but does not override
+-- Do Not Disturb the way priority 5 does. A monitor that wakes you at 3am for a blip gets muted,
+-- and a muted alert channel is worse than none.
+--
+-- Idempotent: guarded by NOT EXISTS on the notification name.
+
+INSERT INTO notification (name, active, user_id, is_default, config)
+SELECT 'ntfy (phone)', 1, 1, 1,
+       '{"name":"ntfy (phone)","type":"ntfy","ntfyserverurl":"https://ntfy.sh","ntfytopic":"__NTFY_TOPIC__","ntfyPriority":4,"ntfyAuthenticationMethod":"none","applyExisting":true,"isDefault":true}'
+WHERE NOT EXISTS (SELECT 1 FROM notification WHERE name = 'ntfy (phone)');
+
+-- Attach it to every existing monitor that does not already have it.
+INSERT INTO monitor_notification (monitor_id, notification_id)
+SELECT m.id, n.id
+FROM monitor m
+CROSS JOIN (SELECT id FROM notification WHERE name = 'ntfy (phone)') n
+WHERE NOT EXISTS (
+    SELECT 1 FROM monitor_notification mn
+    WHERE mn.monitor_id = m.id AND mn.notification_id = n.id
+);

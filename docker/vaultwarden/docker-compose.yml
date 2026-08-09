@@ -1,0 +1,39 @@
+# Vaultwarden — Bitwarden-compatible password manager.
+#
+# WHY: the 2026-07-29 security review ended with "passwords are now reused across services". Four
+# hostnames are internet-facing behind those shared credentials. This is the fix.
+#
+# DELIBERATELY LAN-ONLY. It is bound to the NAS LAN IP and is NOT a route on the Cloudflare tunnel.
+# Exposing a password vault to the internet is a separate decision with its own hardening
+# (Cloudflare Access, SIGNUPS_ALLOWED=false, a strong admin token) and should not ride along with a
+# batch install. The Bitwarden clients work fine against a LAN-only server on the home network.
+#
+# SIGNUPS_ALLOWED starts true so Pat can create the first account, then MUST be flipped to false —
+# otherwise anyone on the LAN can register. See PLAN.md.
+#
+# WEBSOCKET_ENABLED gives live sync between clients.
+
+services:
+  vaultwarden:
+    image: vaultwarden/server:latest
+    container_name: vaultwarden
+    restart: unless-stopped
+    environment:
+      - TZ=America/Chicago
+      # Locked 2026-08-05 once Pat's account existed. Leaving this true lets anyone on the LAN
+      # register against the vault. To add a person later, flip to true, register, flip back —
+      # or use an admin invite instead.
+      - SIGNUPS_ALLOWED=false
+      - WEBSOCKET_ENABLED=true
+      # MUST be the https URL clients actually use, not the raw LAN address. Vaultwarden builds
+      # links, WebAuthn/2FA origins and app config from this — a mismatch breaks 2FA registration.
+      # Caddy terminates TLS on 8443 and proxies here; see docker/caddy/.
+      - DOMAIN=https://vault.patplex.net:8443
+    volumes:
+      - /volume1/Config/vaultwarden:/data
+    ports:
+      - "192.168.68.56:8222:80"   # LAN IP only — not 0.0.0.0, not tunnelled
+    deploy:
+      resources:
+        limits:
+          memory: 256M

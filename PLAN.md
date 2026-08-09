@@ -167,6 +167,28 @@ Note: Overseerr is **already running** (`DefiantJazz`) — Phase 2 is adopt/veri
 - PIA credentials — user provides directly to config; Claude never handles them.
 - NAS LAN IP + SSH username/port.
 - Inventory of what's currently running (Phase 1).
+- ~~Radarr profile 7 has no DV/Atmos/HDR10+ scores~~ — **DONE 2026-08-05**, scored to match Sonarr.
+- **Radarr profile 7 YTS scores pull against the DV preference** — +500/+1000 for YTS (small, low
+  bitrate) on the same profile that now prefers DV. Decide which way that profile should lean.
+- **Recyclarr needs a profile to manage** (2026-08-05) — installed but its config is a no-op and the
+  scheduled container is not started. Now that profile 7 is scored by hand, the question is whether
+  Recyclarr should take ownership of that scoring (declarative, cannot drift again) or stay off.
+- ~~Vaultwarden `SIGNUPS_ALLOWED=true`~~ — **DONE 2026-08-05**: account created
+  (`p.lytle43@gmail.com`, 652 items imported), signups locked. Verified a registration POST now
+  returns 422.
+- **Vaultwarden only works on the LAN** — `vault.patplex.net` resolves via the AdGuard rewrite and
+  is NXDOMAIN publicly, so the browser extension and phone app cannot reach the vault away from
+  home. With 652 passwords in it that will be felt. Options: a WireGuard/Tailscale tunnel back home
+  (keeps the vault unexposed — preferred), or publishing it through the Cloudflare Tunnel behind
+  Cloudflare Access (convenient, but puts the vault on the internet).
+- **Client gotcha:** self-hosted accounts do NOT exist on `vault.bitwarden.com`. The web vault is
+  `https://vault.patplex.net:8443`; the extension and mobile app need
+  ⚙️ → Self-hosted → Server URL set BEFORE logging in.
+- ~~Uptime Kuma has no monitors~~ — **DONE**: 17 monitors + ntfy alerting, both verified.
+- **No VPN kill-switch monitor** — needs a script comparing qBittorrent's exit IP to the host's,
+  feeding a push monitor. The port check only proves qBittorrent is alive, not that it is tunnelled.
+- **Bazarr has no OpenSubtitles.com account** — three no-account providers only.
+- Offsite backup still missing — `/volume1/docker/_backups` is same-pool only.
 
 ### Prowlarr indexers (2026-07-28)
 - **EZTV was failing**: "blocked by CloudFlare Protection". Root cause: FlareSolverr was never
@@ -608,3 +630,270 @@ the cron copy (which runs as root) is the complete one.
 **Post-update verification:** Sonarr 4.0.19.2979 and Radarr 6.3.0.10514 both connection-test OK to
 qBittorrent; Prowlarr 2.5.2.5491 kept all 5 indexers; Plex serves all 3 libraries; all four public
 hostnames return 200; DNS and ad-blocking unaffected.
+
+### RAM reclaim + five new services (2026-08-05)
+
+**The box was memory-bound, not disk-bound.** Measured before touching anything: 7691 MB total,
+**2156 MB available, with 3249 MB of swap already in use** — while disk sat at 48% (12 TB free).
+The 19 running containers accounted for only ~2.0 GB; the rest is UGOS Pro itself. Every decision
+below follows from that number.
+
+**Phase 0 — reclaimed 348 MB** (measured: available 2156 → 2504 MB, swap 3249 → 2932 MB):
+- **`firefox-app-1` REMOVED.** 260 MB, `restart=always`, running since 2026-07-05, created Feb 2025.
+  It published `0.0.0.0:5888` (browser) and `0.0.0.0:5999` (VNC) — unauthenticated, LAN-reachable.
+  The 2026-07-29 security review had flagged it and left it. Verified afterwards: no listeners on
+  either port. Spec saved to `_backups/container-specs/firefox-app-1.20260805.json` first.
+- **Readarr STOPPED, not deleted** (108 MB) — `restart=no`, config untouched at `/volume1/Config`.
+  It is retired upstream and only kept for its 1360-book DB; start it on demand if that is needed.
+- Also chmod 600'd everything in `_backups/container-specs/` — `docker inspect` output embeds
+  container environment variables, and those files were mode 777.
+
+**Bazarr (`docker/bazarr/`, :6767)** — subtitles for the Sonarr/Radarr libraries. Mounts `/TV` and
+`/Movies` copied verbatim from the media stack so paths align; verified `docker exec bazarr ls /TV`
+returns the same listing Sonarr sees. Wired to both apps by reading their API keys straight out of
+`config.xml`. English profile created, set as default for new items, and back-filled onto all
+existing items (47 series, 600 movies — 0 left unassigned).
+
+- **GOTCHA THAT COST THE MOST TIME HERE:** the first language profile was written without the
+  `audio_only_include` key. The profile *saved fine* and the UI looked correct, but
+  `subtitles/indexer/movies.py:253` reads that key unconditionally, so every "index missing
+  subtitles" pass died with `KeyError: 'audio_only_include'` and returned HTTP 500. Bazarr therefore
+  never worked out what was missing — it looked installed and did nothing. Symptom to recognise:
+  POSTs to `/api/movies` return 500 while the profile assignment itself still lands. Full item
+  schema is `id, language, audio_exclude, audio_only_include, hi, forced`.
+- Second gotcha: language profiles are NOT saved via `/api/system/languages/profiles` (GET-only,
+  POST returns 405). They go through `POST /api/system/settings` with the `languages-profiles` and
+  `languages-enabled` form keys.
+- Third: shell/grep parsing of Bazarr's JSON undercounts badly (titles contain braces and commas) —
+  it reported 413 movies when there were 572. Use a real JSON parser.
+- Providers enabled: podnapisi, tvsubtitles, yifysubtitles — all work without an account.
+  OpenSubtitles.com has far better coverage but needs a free login; left for Pat to add.
+- Verified working: **197 movies and 71 episodes** now correctly identified as missing subtitles.
+
+**Recyclarr (`docker/recyclarr/`) — INSTALLED BUT DELIBERATELY NOT SCHEDULED.**
+Installing it surfaced a live bug it would have prevented:
+
+- **Radarr quality profile 7 "Ultra-HD/1080p" carries 567 of 613 movies (92%) and has NO Dolby
+  Vision, Atmos or HDR10+ scores at all.** Those custom formats were scored on profile 5, which
+  only 6 movies use. Sonarr's profile 7 *does* have them — added 2026-08-01 when the Silo problem
+  was found — but the same fix was never applied to Radarr. **The 4K tuning is effectively inactive
+  for the movie library.** Not changed yet: adding scores alters grab/upgrade behaviour for 567
+  movies and is Pat's call.
+- A stock TRaSH template would have done real damage here. Inspected before running:
+  `quality_definition: type: movie` overwrites the lean 1080p sizing (~22 MB/min pref, ~45 max);
+  `quality_profiles: trash_id:` CREATES a new profile rather than editing the ones in use; and
+  `reset_unmatched_scores: enabled: true` zeroes every score not named in the config — which would
+  wipe the YTS/EZTV penalties and the DV/Atmos work.
+- Name collisions are real: Radarr and Sonarr each have hand-made formats named exactly
+  `Dolby Vision`, `HDR10Plus`, `Atmos`. Recyclarr matches by name, so a sync REPLACES those
+  definitions. Scores live on the profile, not the format, so scoring would survive — but the
+  matching rules would change.
+- Current config is intentionally a **no-op**: `sync --preview` reports "No changes" for both
+  instances. Recyclarr only syncs custom format definitions for formats a managed quality profile
+  references, so with `quality_profiles:` omitted there is nothing to do. **Open decision** in
+  "Open items" below.
+- Config gotcha: instance names must be unique across BOTH the `radarr:` and `sonarr:` blocks —
+  naming each one `main` fails with "Duplicate Instances". The `[Streaming Services] General` group
+  id is Radarr-only; repeating it under Sonarr warns "does not match any known CF group".
+
+**Vaultwarden (`docker/vaultwarden/`, 192.168.68.56:8222)** — closes the review's "passwords are now
+reused across services". **LAN-only and NOT on the Cloudflare tunnel** — exposing a password vault
+is a separate decision with its own hardening. `SIGNUPS_ALLOWED=true` for first-account creation
+and **must be flipped to false** afterwards.
+
+**Uptime Kuma (`docker/uptime-kuma/`, 192.168.68.56:3001)** — nothing previously reported failures;
+both the Overseerr scan failure and Shelfmark's orphaned downloads were found by hand, days late.
+
+**Homepage (`docker/homepage/`, 192.168.68.56:3003)** — one dashboard for ~20 services.
+`HOMEPAGE_ALLOWED_HOSTS` is REQUIRED on current versions or the page fails host validation. No
+docker socket is mounted (same reasoning that removed the Portainer agent); services are listed
+explicitly in `services.yaml`.
+
+**Verification:** all three new web services return 200/302 and are bound to `192.168.68.56` only,
+never `0.0.0.0` (confirmed with `ss -lnt`). VPN kill-switch re-tested — qBittorrent exits via
+`191.96.36.135` vs the NAS host IP `167.237.38.122`. All four public hostnames still serve. Final
+memory: **2174 MB available vs 2156 MB at the start** — the reclaim paid for all five additions.
+`vmstat` shows swap-in only, no swap-out: not thrashing.
+
+**Deliberately skipped, on RAM grounds:** Immich (needs 6 GB with ML) and Paperless-ngx
+(600–900 MB idle, 1.5–2 GB during OCR). Both are the biggest genuine gaps in the setup. The
+DXP2800 has a **single** DDR5 SO-DIMM slot, 8 GB stock, officially supported to 16 GB — that
+upgrade is what unlocks them.
+
+### Radarr profile 7 scored to match Sonarr (2026-08-05)
+
+Fixed the drift found above. Radarr profile 7 "Ultra-HD/1080p" now carries **Dolby Vision +1500,
+Atmos +400, HDR10+ +300**, matching Sonarr's profile 7. Profile JSON backed up first to
+`_backups/container-specs/radarr-profile7.20260805-193014.json`.
+
+- **Zero blast radius on existing files, and this was verified before applying, not assumed:**
+  profile 7 has **`upgradeAllowed: False`**. Radarr therefore never re-grabs the 560 existing files
+  on that profile — the new scores only decide which release wins on FUTURE grabs. The apply script
+  aborts if `upgradeAllowed` is ever True.
+- **Worth a later decision:** profile 7 also scores **YTS 1080p +500 and YTS 2160p +1000**, i.e. it
+  actively prefers YTS releases, which are small and low-bitrate. Profile 5 does the opposite
+  (YTS 2160p **−200**, demoted on 2026-07-27 as a 4K-quality decision). With DV now at +1500 a
+  DV release outranks a YTS one, so the intent is served — but profile 7 still pulls in two
+  directions. If 4K quality matters more than file size on this profile, the YTS scores should come
+  down; if it is meant to be the lean/small tier, they should stay. Not changed either way.
+
+### Uptime Kuma monitors seeded (2026-08-05)
+
+Admin account created by Pat; **16 monitors** seeded and all verified reporting UP with real
+responses. DB backed up to `_backups/container-specs/kuma.db.pre-seed.*` first.
+
+- Seed lives in `docker/uptime-kuma/seed-monitors.sql`, committed and **idempotent** (every insert
+  guarded by `NOT EXISTS` on the monitor name). Apply with
+  `docker exec -i uptime-kuma sqlite3 /app/data/kuma.db < seed.sql` then `docker restart`.
+- **Uptime Kuma v1 has NO REST API for monitor CRUD** — it is socket.io only. Monitors are either
+  clicked in by hand or inserted into `kuma.db`. That is why this is a .sql file and not a script
+  hitting an API.
+- Public hostnames accept **2xx AND 3xx**: Overseerr answers 307 and Calibre-Web answers 302 (login
+  redirects, not failures). Strict `200-299` would have alerted constantly — a false-alarm monitor
+  gets muted and then misses the real outage.
+- The *arr apps and qBittorrent are **TCP port** checks, so they need no API key and do not trip
+  over login pages.
+- AdGuard is monitored as a **`dns` type that actually resolves `github.com` through
+  `192.168.68.56`**, not a port check — confirmed returning `140.82.113.3`. A port check would pass
+  on a wedged-but-listening resolver, which is the failure that would take the whole LAN down.
+- **Also still missing: a VPN kill-switch monitor.** Uptime Kuma cannot express "qBittorrent's exit
+  IP is still PIA's". That needs a script comparing the two IPs feeding a **push** monitor. The
+  qBittorrent port check only proves the process is alive, NOT that it is still tunnelled.
+
+### ntfy alerting — and the silent-failure bug that made it useless (2026-08-05)
+
+Channel: **ntfy.sh**, priority 4 (high: sounds, but does not override Do Not Disturb — a channel
+that wakes you at 3am for a blip gets muted, and a muted channel is worse than none). Attached to
+all 16 monitors and set as default so new monitors inherit it. Topic is a 24-hex-char random string
+stored in `/volume1/docker/scripts/.creds` as `NTFY_TOPIC` and **deliberately not committed** —
+ntfy.sh topics have no access control, so knowing the name is enough to read every alert.
+`docker/uptime-kuma/seed-ntfy.sql.template` carries a `__NTFY_TOPIC__` placeholder instead.
+
+**THE BUG — found only because the alerting was actually tested.** After wiring ntfy up, a
+deliberate outage (stop `homepage`, watch it go DOWN) produced correct DOWN heartbeats and
+**no notification at all**. The topic was empty. Uptime Kuma logged:
+
+```
+Cannot send notification to ntfy (phone)
+400 {"code":40018,"error":"invalid request: actions invalid; parameter 'url' is required for action 'view'"}
+```
+
+- **Cause:** `/app/server/notification-providers/ntfy.js` attaches a "view" action button to every
+  alert and fills its url from **`monitorJSON.url`** — the monitor's OWN `url` column, *not* the
+  Primary Base URL setting. `port` and `dns` monitors never populate that column, so the url is
+  null and **ntfy rejects the entire notification** with a 400.
+- **Blast radius:** 10 of the 16 monitors were `port`/`dns` type — Sonarr, Radarr, Prowlarr, Bazarr,
+  qBittorrent, Vaultwarden, Homepage, both LAN book services, and the AdGuard DNS check. Every one
+  of them would have recorded outages correctly and **never told anyone**. Only the 6 HTTP monitors
+  would have alerted.
+- **A wrong first guess, recorded so it is not repeated:** setting `primaryBaseURL` looks like the
+  fix and is not — the provider never reads it. Verified: the setting was applied, restarted, and
+  the 400 continued unchanged.
+- **Fix:** `docker/uptime-kuma/fix-ntfy-action-urls.sql` sets a `url` on every non-HTTP monitor,
+  pointing at that service's own web UI (cosmetic for the check, which uses hostname+port — and it
+  makes the button in the alert genuinely useful). Ends with a catch-all `UPDATE` so any future
+  non-HTTP monitor cannot reintroduce this.
+- **Verified after the fix by repeating the same deliberate outage:** 0 send errors, and the topic
+  received `Homepage Down [Uptime-Kuma]` followed by `Homepage Up [Uptime-Kuma]`.
+- **LESSON:** an alerting system that has never alerted is not installed, it is decorative. Both the
+  channel *and* a real state transition have to be exercised — the direct `curl` test to ntfy.sh
+  passed the whole time this was broken, because the topic was fine and Uptime Kuma was the problem.
+
+### Vaultwarden is unusable over plain HTTP — needs a reverse proxy (2026-08-05)
+
+The web vault at `http://192.168.68.56:8222` loads but refuses to work:
+*"You are not using a secure context which is required for the Subtle Crypto API to work."*
+
+- **This is not a misconfiguration, it is a browser rule.** Vaultwarden's own docs state the web
+  vault uses web crypto APIs that browsers only expose over HTTPS, and this applies **even on a LAN**
+  — network isolation does not exempt it. Binding it to a LAN IP over `http://` can never work.
+  Upstream's recommended fix is a reverse proxy terminating TLS.
+- The Bitwarden mobile apps and browser extensions also require HTTPS, so a browser flag override
+  only ever fixes one desktop browser.
+**RESOLVED same day — Caddy + Let's Encrypt, still LAN-only (`docker/caddy/`).**
+
+`https://vault.patplex.net:8443` now serves a real Let's Encrypt certificate
+(`CN=vault.patplex.net`, issuer Let's Encrypt YE1, valid 2026-08-06 → 2026-11-04) and returns 200.
+
+- **Port 8443, not 443:** UGOS Pro's own web server already owns `0.0.0.0:80` and `0.0.0.0:443`.
+  Those belong to the NAS OS. Costs nothing — DNS-01 needs no inbound port.
+- **DNS-01 via Cloudflare** means a genuine trusted cert with **nothing exposed to the internet**.
+  Verified: `vault.patplex.net` returns **NXDOMAIN from both 1.1.1.1 and 8.8.8.8**, and the
+  Cloudflare zone holds **0 DNS records** for it — the ACME TXT record is created and cleaned up
+  during validation. It resolves only via the AdGuard rewrite, on the LAN.
+- Token is a **scoped** Zone:DNS:Edit token for patplex.net only, in a gitignored `.env` (chmod 600).
+  Confirmed valid via Cloudflare's `/user/tokens/verify`; the account-level
+  `/user/tokens/permission_groups` call fails, which is the expected proof it is scoped rather than
+  a Global API Key.
+- **CRLF TRAP:** writing the `.env` from PowerShell stores `CF_API_TOKEN=<token>\r`. The carriage
+  return is invisible in every normal check and Cloudflare then rejects the token with an
+  authentication error that says nothing about line endings. `od -c` the file, or pipe through
+  `tr -d '\r'` on the NAS side. Applies to ANY secret written to the NAS from PowerShell.
+- `DOMAIN` in the Vaultwarden compose **must** be the https URL clients use
+  (`https://vault.patplex.net:8443`), not the raw LAN address — Vaultwarden derives links and
+  WebAuthn/2FA origins from it, and a mismatch breaks 2FA registration.
+- **Uptime Kuma needed `extra_hosts`** for `vault.patplex.net`: it only exists as an AdGuard
+  rewrite, and Docker's embedded DNS does not consult AdGuard, so the container got NXDOMAIN and the
+  monitor would have false-alarmed permanently. Pinned via `extra_hosts` rather than setting
+  `dns: 192.168.68.56` on the container — this box MONITORS AdGuard, so making Uptime Kuma depend on
+  AdGuard for resolution would fail every monitor at once during an AdGuard outage and bury the one
+  alert that identifies the cause.
+- Added monitor **"Vaultwarden (HTTPS)"** with `expiry_notification` on, so a silently
+  non-renewing certificate raises an alert rather than a browser error in 90 days.
+- Reusable: any other LAN service needing TLS is now three lines in the Caddyfile plus an AdGuard
+  rewrite. `scripts/add-adguard-rewrite.sh` automates the DNS half.
+
+### Follow-ups blocked on account creation (2026-08-05)
+
+Three items are ready but need Pat to create an account first — Claude does not create accounts or
+handle passwords, consistent with the PIA rule at the top of this file.
+
+1. **Uptime Kuma** — `user` table is empty. Create the admin account at `http://192.168.68.56:3001`,
+   then the monitors can be added. Note v1 has **no REST API for monitor CRUD** (socket.io only), so
+   monitors are either clicked in the UI or seeded into `kuma.db` directly.
+   Monitors wanted: the 4 public hostnames, AdGuard DNS `192.168.68.56:53`, Plex 32400,
+   Sonarr 8989, Radarr 7878, Prowlarr 9696, qBittorrent 8080, Bazarr 6767, and the VPN exit IP.
+2. **Vaultwarden** — create the first account at `http://192.168.68.56:8222`, then
+   `SIGNUPS_ALLOWED` must be flipped to `false` in `docker/vaultwarden/docker-compose.yml` and
+   redeployed. Until then anyone on the LAN can register.
+3. **Bazarr + OpenSubtitles.com** — currently on three no-account providers (podnapisi, tvsubtitles,
+   yifysubtitles). OpenSubtitles.com has much better coverage. Free account at
+   opensubtitles.com, then add the credentials in Bazarr under
+   Settings → Providers → OpenSubtitles.com (they land in `config.yaml` under the
+   `opensubtitlescom:` key). Pat enters these directly.
+
+### Maintainerr "Leaving Soon" rule — audited, grace period raised, keep-label added (2026-08-09)
+Pat reported it was flagging recently-added movies. **Audited the rule first — it was written
+correctly.** Decoded from Maintainerr's own enums (`RulePossibility`, `RuleType` in
+`/opt/app/server/dist/modules/rules/constants/rules.constants.js`) rather than guessing:
+
+| # | sec | Condition |
+|---|---|---|
+| 18 | 0 | Radarr `fileSize` BIGGER 15359 (MB → 15 GB) |
+| 19 | 0 | AND Plex `viewCount` EQUALS 0 |
+| 20 | 1 | AND Plex `addDate` BEFORE 7776000s (added >90 days ago) |
+
+Sections combine with AND — confirmed in `rule.comparator.service.js`: the operator on the FIRST
+rule of a new section sets `sectionActionAnd = +operator === 0`. Rule 20's operator is "0" = AND.
+
+Verified against the real library (607 movies): smallest item on the list was 15.30 GB (0 under
+threshold, so the size unit is MB not bytes), and 5 large unwatched movies newer than 90 days were
+correctly held back. **Nothing was broken — 90 days is just shorter than it feels.**
+
+**Changes made** (DB edited directly at `/volume1/Config/Maintainerr/maintainerr.sqlite`, backed up
+first; the API path is `PUT /api/rules` but the RulesDto is easy to get wrong):
+- Rule 20: `7776000` → `15552000` (90 → **180 days**)
+- **New rule 21**, section 1, AND: Plex `labels` (prop 24, TEXT_LIST) **NOT_CONTAINS** `keep`
+
+Why `NOT_CONTAINS` is safe for the ~600 untagged movies: `doRuleAction` implements NOT_CONTAINS as
+`!CONTAINS`, and CONTAINS is `val1?.includes(val2)` — an empty/absent label list yields false, so
+`!false = true` and untagged movies stay eligible. Only an explicit `keep` label opts a movie out.
+Both sides are lowercased in `doRuleAction`, so Plex normalising the tag to "Keep" still matches.
+
+**Verified end-to-end:** labelled *The Dark Knight* `keep`, ran `POST /api/rules/execute` → 6 items
+removed (the 5 movies aged 119–176 days, plus The Dark Knight). List went 67 → 61, newest remaining
+item is 219 days old. Nothing was deleted: all 67 entries had been added to the collection that
+morning, and `deleteAfterDays` is 30, so nothing was near the delete window.
+
+**Tagging is done in Plex Web only** (not the mobile/TV apps): Movies library → hover a poster and
+tick its checkbox → select others → Edit → Tags → Labels → type `keep`.

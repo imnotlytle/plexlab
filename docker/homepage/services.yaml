@@ -1,0 +1,59 @@
+# Homepage service list. Deployed to /volume1/Config/homepage/services.yaml.
+#
+# Deliberately no API-key widgets yet — every widget needs its app's API key, which would mean
+# another secrets file. Add them later if the live stats are wanted.
+#
+# Ports are the real ones on 192.168.68.56. The two book services are labelled explicitly because
+# calibre.home:8083 (ebooks) vs books.home:13378 (audiobooks) is easy to confuse.
+
+- Media:
+    - Plex:
+        href: http://192.168.68.56:32400/web
+        description: Movies, TV and audiobooks — the player
+    - Overseerr:
+        href: https://overseerr.patplex.net
+        description: Request movies and shows (public)
+    - Tautulli:
+        href: http://192.168.68.56:8181
+        description: Plex watch history and stats
+
+- Media automation:
+    - Sonarr:
+        href: http://192.168.68.56:8989
+        description: TV — grabs and imports episodes
+    - Radarr:
+        href: http://192.168.68.56:7878
+        description: Movies — grabs and imports
+    - Prowlarr:
+        href: http://192.168.68.56:9696
+        description: Indexer manager feeding Sonarr/Radarr
+    - Bazarr:
+        href: http://192.168.68.56:6767
+        description: Subtitles for the Sonarr/Radarr libraries
+
+- Books:
+    - Audiobookshelf:
+        href: https://abs.patplex.net
+        description: Audiobooks (LAN books.home:13378) — public
+    - Calibre-Web:
+        href: https://books.patplex.net
+        description: Ebooks (LAN calibre.home:8083) — public
+    - Shelfmark:
+        href: https://shelfmark.patplex.net
+        description: Search and download books — public, CWA login
+
+- Downloads:
+    - qBittorrent:
+        href: http://192.168.68.56:8080
+        description: Torrents — runs inside the PIA WireGuard netns
+
+- Infrastructure:
+    - AdGuard Home:
+        href: http://192.168.68.56:3000
+        description: Network-wide DNS ad blocking
+    - Uptime Kuma:
+        href: http://192.168.68.56:3001
+        description: Service monitoring and alerts
+    - Vaultwarden:
+        href: https://vault.patplex.net:8443
+        description: Password manager — LAN only, real cert via Caddy

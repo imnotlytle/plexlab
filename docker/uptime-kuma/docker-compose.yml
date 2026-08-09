@@ -1,0 +1,38 @@
+# Uptime Kuma — uptime monitoring and alerting.
+#
+# WHY: nothing on this box currently says when something breaks. The Overseerr Plex-scan failure
+# (2026-07-27) had been failing every 5 minutes for an unknown period, and Shelfmark's orphaned
+# in-flight downloads (2026-07-29) were both found by hand, days late. Both are exactly what an
+# uptime monitor catches.
+#
+# LAN-only, like Tautulli and AdGuard's UI. First launch prompts to create an admin account.
+#
+# Monitors to add after first login (see PLAN.md):
+#   - the four public hostnames: overseerr / abs / books / shelfmark .patplex.net
+#   - AdGuard DNS  192.168.68.56:53   (TCP or DNS monitor)
+#   - Plex 32400, Sonarr 8989, Radarr 7878, Prowlarr 9696, qBittorrent 8080
+#   - the VPN exit IP, so a kill-switch failure is visible
+
+services:
+  uptime-kuma:
+    image: louislam/uptime-kuma:1
+    container_name: uptime-kuma
+    restart: unless-stopped
+    environment:
+      - TZ=America/Chicago
+    volumes:
+      - /volume1/Config/uptime-kuma:/app/data
+    ports:
+      - "192.168.68.56:3001:3001"
+    # vault.patplex.net only exists as an AdGuard rewrite, and Docker's embedded DNS does not
+    # consult AdGuard — the container gets NXDOMAIN and the monitor would false-alarm forever.
+    #
+    # Pinned here rather than setting `dns: 192.168.68.56` on the container: this box monitors
+    # AdGuard itself, so making Uptime Kuma depend on AdGuard for resolution means an AdGuard
+    # outage fails EVERY monitor at once and buries the one alert that identifies the cause.
+    extra_hosts:
+      - "vault.patplex.net:192.168.68.56"
+    deploy:
+      resources:
+        limits:
+          memory: 384M
