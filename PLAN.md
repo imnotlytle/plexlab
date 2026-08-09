@@ -985,3 +985,48 @@ Pre-flight checks that saved guesswork later: the provider domain is **not** cau
 733k rules, and is reachable from inside the container (401 at root = expected, wants auth).
 
 Open: nothing prunes DVR recordings — the Maintainerr rule covers the Movies library only.
+
+#### Channel curation, EPG and the Plex tuner shim (2026-08-09, same day)
+Provider import landed **14,728 channels / 36,442 streams / 377 groups**. Far too many for Plex,
+whose Live TV is built around a few hundred linear channels.
+
+Inspecting the groups showed two very different things mixed together:
+- **Real linear channels** — `US: ACC Network`, `UK: Sky Sports F1 UHD`, `US: AMC`.
+- **Per-event placeholder slots** — `NCAAF 02 :` (literally empty), `ESPN+ 07: PEC Zwolle vs Ajax
+  @ Aug 09 8:25AM`. Hundreds of these; they'd fill the guide with dead rows.
+- **225 CBS / 219 FOX / 214 NBC local affiliates**, one per US market.
+
+`scripts/dispatcharr-build-plex-profile.py` builds a `Plex` ChannelProfile = **1,180 channels**
+from 20 groups (linear sports/news/entertainment/movies/4K + the MLB/NHL/NBA/NCAAF game feeds).
+Everything else stays in Dispatcharr, just not exposed — widening it is a one-line edit.
+
+**EPG needed manual linking.** Dispatcharr's `match_epg_channels` only does fuzzy name matching for
+channels with NO tvg_id; it never links channels whose tvg_id already matches an EPG entry exactly
+— which was 856 of 860 here. The source sat at "No channels mapped (6609 entries available)" and
+programmes stayed at 0 forever. `scripts/dispatcharr-link-epg.py` links by tvg_id then refreshes:
+**3,403 channels linked, 121,937 programmes**. Programme fetch only runs for mapped entries, so the
+link must happen first.
+
+**Plex needs an HDHomeRun at a URL ROOT.** Its grabber probes `/discover.json`, `/lineup.json`,
+`/lineup_status.json`, `/device.xml` at `host:port` and **ignores any path** in the address given
+(`Grabber: HDHomerun discovered 0 compatible devices`). Dispatcharr serves the filtered profile at
+`/hdhr/Plex/` and only serves `device.xml` at the unfiltered `/hdhr/` root — so pointing Plex at it
+directly yields either no device or all 14,728 channels. Fixed with a ~10 MB nginx shim
+(`plex-tuner-shim.conf`, port **9192**) that maps the profile to a root and rewrites the advertised
+BaseURL. Stream URLs in lineup.json are already absolute to :9191, so playback bypasses the shim.
+
+**The Plex manual-add endpoint is `POST /media/grabbers/devices?uri=<ip:port>`** — not
+`/media/grabbers/devices/discover`, which silently ignores `uri` and just re-runs broadcast
+discovery. The device must then be referenced by its full uuid
+(`device://tv.plex.grabbers.hdhomerun/<id>`), not `key="1"`. Tuner now registers `status="alive"`,
+10 tuners.
+
+**Unfinished:** creating the DVR itself (`POST /livetv/dvrs`) still returns *"The EPG provider does
+not exist."* for every `lineup=` format tried. The param format is undocumented and guessing was
+wasting time — note that `/tv.plex.providers.epg.xmltv` is NOT evidence of a provider id; that path
+echoes `content="plugins"` for any string. Finish this in the Plex UI: Live TV & DVR → the tuner is
+already listed → choose the XMLTV guide option and paste
+`http://192.168.68.56:9191/output/epg/Plex`.
+
+Also open: no local affiliates in the profile (needs Pat's market), and nothing prunes recordings.
+Memory holding at ~1.0 GiB for Dispatcharr + 2 MB for the shim; 1.4 GB free on the box.

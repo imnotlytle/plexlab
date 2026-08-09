@@ -36,3 +36,19 @@ services:
     # Deliberately NO /dev/dri. Dispatcharr can transcode via VA-API, but Plex already owns the
     # Intel GPU and does it well. Keeping one consumer of the GPU means one place to debug when
     # a transcode misbehaves. Dispatcharr just proxies the stream; Plex transcodes.
+
+  # Plex's HDHomeRun grabber only accepts a bare host:port and probes /discover.json etc. at the
+  # root — it ignores any path you give it. Dispatcharr serves the filtered "Plex" profile under
+  # /hdhr/Plex/, so without this shim Plex either finds nothing or ingests all 14,728 channels.
+  # See plex-tuner-shim.conf for the details. ~10 MB; discovery only, streams bypass it.
+  dispatcharr-plex-shim:
+    image: nginx:alpine
+    container_name: dispatcharr-plex-shim
+    restart: unless-stopped
+    depends_on:
+      - dispatcharr
+    volumes:
+      - ./plex-tuner-shim.conf:/etc/nginx/conf.d/default.conf:ro
+    ports:
+      - "9192:9192"     # this is the address to give Plex
+    mem_limit: 64m
