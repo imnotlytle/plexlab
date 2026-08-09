@@ -1112,3 +1112,32 @@ back to movies/TV only, untouched. Dispatcharr stays as the curation/EPG layer.
 
 **Pat-side (documented in chat):** sideload TiviMate on the Fire Stick via the Downloader app,
 add the playlist URL, buy Premium via the TiviMate Companion phone app (~$20 lifetime).
+
+### Plex Live TV — WORKING (2026-08-09, evening)
+Pat pushed back on abandoning the server-run route, correctly: with the API decoded, Plex's cap
+is livable if the lineup is curated to fit. Asked Pat what they actually watch instead of
+guessing; built to the answers.
+
+**The two hard numbers, both measured not assumed:**
+- Plex's channelmap URI limit is **exactly 32 KB** (binary search: 469 ids → 200, 470 → 400).
+- The map PUT **replaces** the whole map — my 21-chunk "merge" earlier left only the last chunk's
+  5 channels live. One request or nothing. Profile budget set to 460.
+
+**`PlexTop` profile (456 channels, 416 with EPG), Pat's priorities:**
+locals 20 (Green Bay + Madison + Milwaukee + Minneapolis — every Packers path: WLUK/WMSN/WITI/
+KMSP + the dedicated NFL GREEN BAY PACKERS feed, force-whitelisted out of the vetoed Backup
+group) · linear sports 201 · NFL team feeds 39 · BIG10+ all 50 (Badgers priority) · NCAAF 25 ·
+SEC+ 15 · **fights 41 (UFC Channel, Fight Pass, PPV group un-vetoed on request)** · sports-4K 43
+· news 25 · movies 35. Cut to make room: the 60 "Sky Sports+" numbered event streams (the real
+Sky Sports linear channels stay).
+
+**Gotchas that cost time:** the 24h-looper filter ate the dedicated Packers feed (off-season
+placeholder EPG looks like a loop) — game/event tiers are now looper-exempt. The shim was
+rebuilt for the PlexTop profile (9192). Wire-up is scripted end to end and repeatable:
+build profile → POST device → POST dvr → ONE channelmap PUT (indexed params) → reloadGuide.
+
+**Verified:** 386 channels in the DVR lineup, guide grid 1,249 entries, UFC + Packers + locals
+confirmed present, Dispatcharr at 569 MiB, box at 1.6 GB available. TiviMate remains the
+better-UX option on a $40-60 Google TV stick later; the 1,438-channel `TV` profile still serves
+/output/m3u/TV for it. Plex was NOT the wrong tool by accident — it is the wrong tool by design
+for IPTV — but it now works within its limits, runs off the server, and needs no new hardware.

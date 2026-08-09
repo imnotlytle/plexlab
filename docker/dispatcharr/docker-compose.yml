@@ -40,5 +40,20 @@ services:
     # is free. There is no swap headroom to absorb that, so the cap is what stops Dispatcharr from
     # starving Plex mid-stream. Do not remove it without checking `free -h` first.
     mem_limit: 1500m
-    # Deliberately NO /dev/dri: Dispatcharr only proxies streams here; TiviMate's device does the
+    # Deliberately NO /dev/dri: Dispatcharr only proxies streams here; the player device does the
     # decoding, and Plex owns the Intel GPU for its own transcodes.
+
+  # Maps Dispatcharr's "PlexTop" profile (the curated <=500 lineup) to a URL root, because Plex's
+  # HDHomeRun grabber only accepts a bare host:port. Discovery only; streams bypass it.
+  # See plex-tuner-shim.conf. Point Plex's tuner at 192.168.68.56:9192.
+  dispatcharr-plex-shim:
+    image: nginx:alpine
+    container_name: dispatcharr-plex-shim
+    restart: unless-stopped
+    depends_on:
+      - dispatcharr
+    volumes:
+      - ./plex-tuner-shim.conf:/etc/nginx/conf.d/default.conf:ro
+    ports:
+      - "9192:9192"
+    mem_limit: 64m
