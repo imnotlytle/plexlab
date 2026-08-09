@@ -1,15 +1,22 @@
-# Dispatcharr — IPTV bridge for Plex Live TV & DVR.
+# Dispatcharr — IPTV middleware: ingests the provider's M3U/Xtream + EPG, curates it, and serves
+# clean playlist + guide endpoints to players.
 #
-# WHY THIS EXISTS: Plex has no native M3U/IPTV input. Its Live TV & DVR only talks to
-# HDHomeRun-style tuners. Dispatcharr ingests the provider's M3U + XMLTV EPG and presents itself
-# to Plex as an HDHomeRun device, which is the only shape Plex will accept.
+# CURRENT CONSUMER: TiviMate on the Fire Stick (living-room LG C5).
+#   playlist  http://192.168.68.56:9191/output/m3u/TV
+#   guide     http://192.168.68.56:9191/output/epg/TV
+# The "TV" channel profile is built by scripts/dispatcharr-build-tv-profile.py (all sports +
+# all 4K + English cable, 24h-loop channels dropped, best-quality variant per channel).
 #
-# The provider's M3U URL is entered in the Dispatcharr web UI and lives in its own database under
-# /volume1/Config/Dispatcharr — deliberately NOT in this file or an .env, so no credentials or
-# subscription URLs can end up in git.
+# HISTORY: this originally fed Plex Live TV & DVR via an HDHomeRun-emulation shim. That route was
+# abandoned — Plex saves a tuner's channel map in one ~40KB-max request URI (hard ~520-channel
+# cap, known unfixed bug) and its DVR API is undocumented. Full story in PLAN.md 2026-08-09.
 #
-# LAN ONLY. Do not add this to the Cloudflare tunnel. Re-serving a provider's streams to the
-# internet breaks their terms and turns a private setup into a public redistribution point.
+# The provider's credentials are entered in the Dispatcharr web UI and live in its database under
+# /volume1/Config/Dispatcharr — deliberately NOT in this file or an .env, so nothing secret can
+# end up in git. max_streams is set to 4 to match the provider plan's concurrent-connection limit.
+#
+# LAN ONLY. Do not add this to the Cloudflare tunnel: re-serving a provider's streams publicly is
+# redistribution — providers detect and ban it.
 
 services:
   dispatcharr:
@@ -27,28 +34,11 @@ services:
       # /volume1/Config, picks this up with no extra work.
       - /volume1/Config/Dispatcharr:/data
     ports:
-      - "9191:9191"                  # web UI + HDHomeRun emulation endpoint
+      - "9191:9191"                  # web UI + m3u/epg output endpoints
     # This NAS has 8 GB total and runs Plex, the *arr stack and a VPN'd qBittorrent. The AIO image
     # is Postgres + Redis + Celery + Django in one container, which will happily grow into whatever
     # is free. There is no swap headroom to absorb that, so the cap is what stops Dispatcharr from
-    # starving Plex in the middle of a stream. Do not remove it without checking `free -h` first.
+    # starving Plex mid-stream. Do not remove it without checking `free -h` first.
     mem_limit: 1500m
-    # Deliberately NO /dev/dri. Dispatcharr can transcode via VA-API, but Plex already owns the
-    # Intel GPU and does it well. Keeping one consumer of the GPU means one place to debug when
-    # a transcode misbehaves. Dispatcharr just proxies the stream; Plex transcodes.
-
-  # Plex's HDHomeRun grabber only accepts a bare host:port and probes /discover.json etc. at the
-  # root — it ignores any path you give it. Dispatcharr serves the filtered "Plex" profile under
-  # /hdhr/Plex/, so without this shim Plex either finds nothing or ingests all 14,728 channels.
-  # See plex-tuner-shim.conf for the details. ~10 MB; discovery only, streams bypass it.
-  dispatcharr-plex-shim:
-    image: nginx:alpine
-    container_name: dispatcharr-plex-shim
-    restart: unless-stopped
-    depends_on:
-      - dispatcharr
-    volumes:
-      - ./plex-tuner-shim.conf:/etc/nginx/conf.d/default.conf:ro
-    ports:
-      - "9192:9192"     # this is the address to give Plex
-    mem_limit: 64m
+    # Deliberately NO /dev/dri: Dispatcharr only proxies streams here; TiviMate's device does the
+    # decoding, and Plex owns the Intel GPU for its own transcodes.

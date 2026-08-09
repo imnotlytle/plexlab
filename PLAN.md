@@ -1072,3 +1072,43 @@ the HOST path `/volume1/transcode`, which does not exist inside the container (t
 `/transcode`). Plex had logged `Error creating directory "/volume1/transcode": Permission denied`
 10 times. Set to `/transcode`. This affected ALL transcoding, not just live TV — the project's
 recurring host-vs-container path-alignment failure, again.
+
+### Live TV pivot: Plex DVR abandoned, TiviMate chosen (2026-08-09)
+Pat asked point-blank whether a better app than Plex exists for IPTV. Honest answer: yes, almost
+anything. The Plex route died on a hard, unfixable fact: the channel map goes in ONE ~40KB-max
+request URI (PUT replaces, chunking does not accumulate — 21 chunks of 50 left only the last 5
+channels mapped), capping a tuner at ~520 channels. Two hidden tuners would have worked, but at
+that point the complexity existed only to satisfy Plex.
+
+**Decision trail (Pat pushed for evidence, correctly):**
+- Jellyfin: best FREE option, native M3U — but its live-TV guide UX is widely called clunky; not
+  "the best available".
+- **Channels DVR ($8/mo)**: the r/cordcutters pick for a whole-home DVR server — comskip, central
+  recordings, polished guide. Recommended first because Pat had earlier asked for record-to-NAS.
+- **TiviMate ($20 lifetime)**: the r/IPTV pick for pure viewing — fastest guide/zapping, runs on
+  the Fire Stick already on the C5. No whole-home DVR (device-local only).
+Pat chose TiviMate; it also spares the RAM-strapped NAS (~1.4 GB free) another server. If
+recording becomes a habit later, Channels DVR can be added without redoing anything.
+
+**Sharing question, answered honestly:** the bottleneck is the provider account, not the app.
+In-house: any number of TVs, limited by the plan's 4 concurrent connections (Dispatcharr
+max_streams set to 4 to match). Plex-style sharing to friends' homes: no app does this —
+Channels has no friend-sharing, Plex only shares DVR recordings, and exposing the playlist
+publicly is redistribution that gets provider accounts banned. Friends buy their own sub.
+
+**Built for TiviMate:** `scripts/dispatcharr-build-tv-profile.py` → profile `TV`:
+**1,438 channels** (763 sports — every league/team/conference feed Pat listed, 569 English cable,
+106 4K), **138 24h-loop channels dropped** (detected from EPG: ≤1 distinct title in 24h; no-EPG
+channels are NOT loopers, game-slot feeds legitimately have thin guides), best-quality variant
+per channel (4K > FHD > HD > SD, per Pat). 1,233 of 1,438 carry EPG; 26,330 programmes.
+- playlist `http://192.168.68.56:9191/output/m3u/TV` (guide URL embedded via x-tvg-url)
+- guide    `http://192.168.68.56:9191/output/epg/TV`
+- **Stream verified end-to-end**: 55 MB of clean MPEG-TS in 25 s (~18 Mbit/s) from the Sky Sports
+  Main Event UHD channel through Dispatcharr's proxy.
+
+**Torn down:** Plex DVR (key 2) + grabber device deleted (200s, dvrs size=0), nginx shim container
++ conf removed from box and repo, stale Dispatcharr profiles (Plex/PlexA/PlexB) deleted. Plex is
+back to movies/TV only, untouched. Dispatcharr stays as the curation/EPG layer.
+
+**Pat-side (documented in chat):** sideload TiviMate on the Fire Stick via the Downloader app,
+add the playlist URL, buy Premium via the TiviMate Companion phone app (~$20 lifetime).
