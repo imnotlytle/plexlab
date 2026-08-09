@@ -1030,3 +1030,45 @@ already listed → choose the XMLTV guide option and paste
 
 Also open: no local affiliates in the profile (needs Pat's market), and nothing prunes recordings.
 Memory holding at ~1.0 GiB for Dispatcharr + 2 MB for the shim; 1.4 GB free on the box.
+
+#### Plex DVR: created, but channel mapping is blocked (2026-08-09)
+**Two earlier diagnoses in this session were wrong and are recorded here so they are not repeated.**
+The tuner wizard's "There was a problem saving channel mappings" was NOT caused by channel count,
+and NOT by URL length:
+- Plex parsed a **21 KB** query URL without complaint (returns 404 for a missing device, not 400).
+- The channelmap PUT returns **400 at every size** — 100 channels / 706 bytes fails identically to
+  1,005 channels / 6.6 KB. Size is irrelevant.
+
+So the ~1,180-channel figure was a red herring; the profile was needlessly cut to 253 sports-only
+channels on a bad assumption, then restored to **1,005 English channels (997 with EPG)**.
+
+**What the log actually revealed** — the real lineup format the Plex web client uses, which is
+undocumented and was not guessable:
+```
+lineup://tv.plex.providers.epg.xmltv/<percent-encoded xmltv url>#<guide title>
+```
+With that, `POST /livetv/dvrs?device=<uuid>&lineup=<above>&language=eng` **succeeds** — DVR key=2
+created, guide attached, `refreshedAt` set, and Plex now advertises a `Live TV & DVR` MediaProvider
+(`tv.plex.providers.epg.xmltv:2`) with Guide/grid/search features.
+
+Also learned: the manual tuner-add endpoint is `POST /media/grabbers/devices?uri=<ip:port>` — NOT
+`/media/grabbers/devices/discover`, which silently ignores `uri` and just re-runs UDP broadcast
+discovery. The device must be referenced by full uuid, not `key`. Device channels come back as
+`<DeviceChannel identifier=...>`, not `<Channel>`.
+
+**The one remaining blocker:** saving the channel map.
+`GET /livetv/epg/channelmap?device=..&lineup=..` returns a perfect 1:1 match for all 1,005 channels
+(`deviceIdentifier == lineupIdentifier`), but every attempt to persist it returns 400:
+`PUT /media/grabbers/devices/1/channelmap` with `channelsEnabled`, with `channelMapping` pairs,
+with both, with a form body, with a JSON body; and `/livetv/dvrs/2/channelmap` is 404.
+Until it saves, `/tv.plex.providers.epg.xmltv:2/grid` is empty.
+
+Pat's browser failed at the *same* call — but on the **CORS preflight** (`400 OPTIONS`), because
+app.plex.tv is cross-origin to the local server. That points at the Plex **desktop app** (no
+browser CORS) as the most promising way to finish the wizard.
+
+**Unrelated real bug found and fixed along the way:** Plex's `TranscoderTempDirectory` was set to
+the HOST path `/volume1/transcode`, which does not exist inside the container (the mount lands at
+`/transcode`). Plex had logged `Error creating directory "/volume1/transcode": Permission denied`
+10 times. Set to `/transcode`. This affected ALL transcoding, not just live TV — the project's
+recurring host-vs-container path-alignment failure, again.
