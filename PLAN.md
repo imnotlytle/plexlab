@@ -897,3 +897,47 @@ morning, and `deleteAfterDays` is 30, so nothing was near the delete window.
 
 **Tagging is done in Plex Web only** (not the mobile/TV apps): Movies library → hover a poster and
 tick its checkbox → select others → Edit → Tags → Labels → type `keep`.
+
+### "Shrink instead of delete" for large unwatched movies (2026-08-09)
+Pat asked for oversized unwatched movies to be **replaced with smaller copies** rather than deleted.
+
+**Why Maintainerr can't do this alone:** its only arrActions are delete/unmonitor variants. And
+**Radarr will never downgrade** — every smaller release is rejected with
+`Existing file meets cutoff`. Verified: 137 of 140 releases rejected for exactly that reason even
+after switching the movie to a 1080p-only profile with `upgradeAllowed: true`. The old file must
+come out *before* the grab. That constraint is the whole reason this needs a script.
+
+**Built:**
+- Radarr quality profile **`Compact 1080p` (id 8)** — WEB 1080p + Bluray-1080p, no Remux, no 2160p.
+- Radarr **recycle bin enabled** → `/recycle` (`/volume1/Media/.recycle`), 14 day retention. Needed
+  a new bind mount on the radarr service in `docker/media/docker-compose.yml`. Nothing is destroyed;
+  deletes become moves on the same filesystem.
+- `scripts/shrink-oversized-movies.py` — takes its work list from the Maintainerr collection (so the
+  rule stays the single source of truth), searches, picks the **largest** candidate that fits the
+  band, and only then removes the old file and pushes that exact release. Dry run by default.
+- `scripts/restore-from-recycle.py` — reverses a run, selecting by regex on the original filename.
+
+**Maintainerr `arrAction` changed 0 (DELETE) → 4 (DO_NOTHING).** The collection is now a work queue,
+not an execution list. Once a replacement imports the movie drops under 15 GB and leaves the
+collection on its own — self-correcting, no loop, no bookkeeping.
+
+**The mistake, and the guard it produced.** The first run shrank 42 movies (~681 GB) — but **27 of
+them were Dolby Vision / Atmos / TrueHD**, which is exactly what Pat had said months earlier he
+wanted preserved for the LG C5. Size was carried through as the only constraint; format was not.
+Pat caught it when Lawrence of Arabia (2160p AV1 HDR TrueHD 7.1+Atmos) went. All 27 were restored
+from the recycle bin, put back on profile 7, and verified.
+The script now **refuses to touch DV/Atmos/TrueHD**, checking Radarr's parsed `mediaInfo`
+(`audioCodec`, `videoDynamicRangeType`) first and the filename second, because release names lie.
+
+**Also learned:** cancelling a grab leaves the movie briefly monitored-and-fileless, and Radarr
+immediately grabs a *fresh* copy at the restored profile. Any restore has to sweep the queue
+afterwards or you get surprise 2160p re-downloads.
+
+Two other gotchas worth keeping:
+- Radarr auto-picked a **1.84 GB YIFY** rip first. The script now blocklists YIFY/YTS/MeGusta/TGx
+  and enforces a floor, because "1080p" alone says nothing about bitrate.
+- The global quality definitions cap Bluray-1080p at 60 MB/min (~7 GB for a 2h film), left over from
+  the earlier "best quality, smallest file" tuning — so replacements land ~3-7 GB, not 6-15 GB.
+
+Net after restores: 15 non-premium movies shrinking, ~200 GB reclaimed. Originals stay in
+`/recycle` for 14 days.

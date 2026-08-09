@@ -37,6 +37,9 @@ services:
       - /volume1/Config/Radarr:/config
       - /volume1/Media/Movies:/Movies
       - /volume1/Media/temp/downloads:/downloads
+      # Recycle bin for the "shrink instead of delete" workflow. Same filesystem as /Movies, so
+      # Radarr moves files here instantly instead of destroying them. Auto-purges after 14 days.
+      - /volume1/Media/.recycle:/recycle
 
   prowlarr:
     image: linuxserver/prowlarr:latest
