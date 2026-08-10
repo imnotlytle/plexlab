@@ -1141,3 +1141,21 @@ confirmed present, Dispatcharr at 569 MiB, box at 1.6 GB available. TiviMate rem
 better-UX option on a $40-60 Google TV stick later; the 1,438-channel `TV` profile still serves
 /output/m3u/TV for it. Plex was NOT the wrong tool by accident — it is the wrong tool by design
 for IPTV — but it now works within its limits, runs off the server, and needs no new hardware.
+
+### TiviMate prep: wide `TV` profile rebuilt; Xiaomi stick inbound (2026-08-09, night)
+Pat bought a **Xiaomi TV Stick 4K (2nd Gen)** — Google TV, so TiviMate installs from the Play
+Store natively (the sideload objection only ever applied to Fire OS). Arrives 2026-08-10.
+
+`TV` profile rebuilt to "all the English channels you can": **3,900 channels** (was 1,438) —
+locals for all four Packers markets + whitelist Packers feed, 965 sports (now incl. UFC/fight
+PPV, USA Soccer, Fubo, F1 TV), 2,806 cable/streaming-FAST (Amazon Prime, PlexTV, Pluto, itvX,
+EN✦ originals), 108 4K. **224 single-show loop channels dropped** by the 24h rule; the *Events
+slot-dump groups stay vetoed. Looper exemption now group-based (Teams/game/PPV groups), so the
+Packers-feed class of bug can't recur. EPG: 61,311 programmes, 18 MB — generation fine, memory
+stable (Dispatcharr 646 MiB).
+
+**Both frontends now run in parallel off one Dispatcharr:** Plex keeps the curated 456-channel
+`PlexTop` DVR (owner/household only — Plex never shows Live TV to friend accounts; recordings in
+/volume1/Media/LiveTV can be shared as a library, which is the actual ceiling for friends), and
+TiviMate gets the full 3,900 via /output/m3u/TV. Provider's 4 concurrent connections arbitrated
+by Dispatcharr max_streams=4.

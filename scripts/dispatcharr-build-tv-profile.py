@@ -35,14 +35,33 @@ SPORTS_PREFIX = [
     "USA | MLB ", "USA | NHL ", "USA | NBA ", "USA | NCAAF",
     "USA | SEC+", "USA | BIG10", "USA | MLS ",
     "Live | English Premier League", "Live | La Liga", "Live | Ligue1",
+    # fights matter (Pat): UFC + fight PPV. Matchroom (snooker/pool) stays out via veto.
+    "Live Pay-Per View", "Live | UFC",
 ]
+# Locals for Pat's markets — Packers coverage is the whole point (they air on FOX).
+LOCAL_PREFIX = ["USA | Local CBS", "USA | Local FOX", "USA | Local NBC",
+                "USA | Local CW", "USA | Local PBS"]
+LOCAL_MARKET = re.compile(r"(Madison|Milwaukee|Green Bay|Minneapolis)", re.I)
+# The dedicated Packers feed lives in the otherwise-vetoed "NFL Teams Backup" group.
+WHITELIST = re.compile(r"^NFL GREEN BAY PACKERS$", re.I)
 FOURK_PREFIX = ["4K / UHD"]
+# "All the English channels you can" (Pat, for TiviMate — no channel cap there). The 24h-looper
+# rule and the *Events-group veto are what keep this from becoming a junk drawer: single-show
+# FAST loops get dropped automatically, dead per-event slot groups never enter.
 CABLE_PREFIX = [
     "USA | Entertainment", "USA | News", "USA | Movies", "USA | Documentary",
     "UK | Entertainment", "UK | News", "UK | Movies", "UK | Documentary",
-    "CA | Entertainment", "CA | Movies", "CA | Documentary",
+    "CA | Entertainment", "CA | Movies", "CA | Documentary", "CA | Kids",
+    "USA | Amazon Prime", "USA | PlexTV", "USA | Pluto TV",
+    "UK | Amazon Prime Channels", "CA | Amazon Prime Channels",
+    "UK | itvX", "USA | ALLBLK", "USA | Peacock LIVE",
+    "EN",                       # every EN-prefixed streaming-original group
 ]
-VETO_GROUP = ["Backup", "ESPN+", "Pay-Per View", "NEXT PRO"]
+EXTRA_SPORTS = ["USA | Soccer", "CA | Fubo", "Live | F1 TV"]
+SPORTS_PREFIX += EXTRA_SPORTS
+# "Sky Sports+" = 60 numbered event overflow streams; the real Sky Sports channels stay.
+# "Event" kills the per-event slot dumps (Disney+/Dazn/Peacock/MAX/Prime Events) wholesale.
+VETO_GROUP = ["Backup", "ESPN+", "NEXT PRO", "Sky Sports+", "Matchroom", "Event"]
 
 NON_ENGLISH = re.compile(r"^(?!US|USA|UK|CA|EN)[A-Z]{2}\s*[:|]")
 QUALITY = re.compile(r"\s*\b(UHD|4K|FHD|HD|SD|HEVC|H265|1080p?|720p?|"
@@ -82,8 +101,17 @@ for epg_id, title in (ProgramData.objects
     titles_by_epg.setdefault(epg_id, set()).add(title)
 
 
+# Game/event/team feeds show placeholder EPG off-season, which reads as a 24h loop — this
+# silently dropped the dedicated Packers feed once. Never looper-drop these groups.
+LOOPER_EXEMPT_GROUP = re.compile(
+    r"(Teams|NCAAF|SEC\+|BIG10|MLB |NHL |NBA |MLS |Premier League|La Liga|Ligue1|"
+    r"Pay-Per View|UFC)", re.I)
+
+
 def is_looper(ch):
     if not ch.epg_data_id:
+        return False
+    if ch.channel_group and LOOPER_EXEMPT_GROUP.search(ch.channel_group.name):
         return False
     t = titles_by_epg.get(ch.epg_data_id)
     return t is not None and len(t) <= 1
@@ -91,6 +119,21 @@ def is_looper(ch):
 
 selected = {}
 loopers = []
+
+# whitelist first: force-included regardless of group vetoes
+for c in Channel.objects.all():
+    if WHITELIST.match(c.name):
+        selected["wl::" + c.name.lower()] = c
+print("whitelisted: +%d" % len(selected))
+
+# locals: only Pat's markets, from the per-market affiliate groups
+n0 = len(selected)
+for c in Channel.objects.filter(channel_group__in=groups_for(LOCAL_PREFIX)):
+    if LOCAL_MARKET.search(c.name) and not is_looper(c):
+        k = base_name(c.name)
+        if k not in selected:
+            selected[k] = c
+print("locals: +%d" % (len(selected) - n0))
 
 # sports + cable: English-only, dedupe variants keeping the best quality
 for bucket, prefixes in (("sports", SPORTS_PREFIX), ("cable", CABLE_PREFIX)):
