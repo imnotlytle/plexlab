@@ -1159,3 +1159,22 @@ stable (Dispatcharr 646 MiB).
 /volume1/Media/LiveTV can be shared as a library, which is the actual ceiling for friends), and
 TiviMate gets the full 3,900 via /output/m3u/TV. Provider's 4 concurrent connections arbitrated
 by Dispatcharr max_streams=4.
+
+### EZTV indexer outage — self-inflicted, now fixed (2026-08-16)
+EZTV had been failing since **Aug 4** and Prowlarr had it benched. The root cause was **our own
+security hardening**: FlareSolverr was rebound to 127.0.0.1:8191 (it had been an unauthenticated
+headless browser open to the LAN), but Prowlarr's FlareSolverr proxy entry still pointed at
+`http://192.168.68.56:8191` → connection refused. EZTV is the only indexer that routes through
+FlareSolverr (Cloudflare), so it alone died. Fix: proxy host → `http://127.0.0.1:8191` (Prowlarr
+is host-network, localhost reaches it). All 5 indexers test green; live EZTV search returns 199
+results; bench cleared.
+
+**Wrong turn, recorded:** the error surfaced truncated ("Connection refused (192...") next to
+boilerplate advice about DNS/IPv6, and the first diagnosis chased IPv6 — the Deco does hand out a
+useless private-only fd9c:: prefix and eztvx.to's IPv6 is genuinely unreachable from this LAN, so
+`DOTNET_SYSTEM_NET_DISABLEIPV6=1` was added to Prowlarr (kept: harmless and correct for this
+network). But the *actual* failure was the proxy port. The lesson: read the untruncated error
+before theorizing — the port number was the whole answer.
+
+**Standing rule this creates: when a service is rebound to localhost for security, grep the other
+services' configs for the old LAN-IP URL.** Sonarr/Radarr checked — no other references to :8191.

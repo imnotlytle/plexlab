@@ -50,6 +50,10 @@ services:
       - PUID=1000
       - PGID=10
       - TZ=America/Chicago
+      # The Deco router hands out a private-only IPv6 prefix (fd9c:...) with no internet route.
+      # .NET sees "IPv6 available", prefers AAAA for indexers that advertise it (EZTV), and the
+      # connection is refused — broke EZTV from 2026-08-04. This makes the runtime IPv4-only.
+      - DOTNET_SYSTEM_NET_DISABLEIPV6=1
     volumes:
       - /volume1/Config/Prowlarr:/config
       - /volume1/Media/TV:/TV
