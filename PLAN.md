@@ -1196,8 +1196,8 @@ same scam as the S03E05 catch). Fixed in two layers:
    downloads nothing, stalls, and Sonarr fails over. This protects every grab, not just Silo.
 2. Sonarr release profile "Block fake-release markers" (ignored: HiggsBoson) so the known fake
    group is never grabbed at all. Add future fake group names here as they appear.
-Re-search then grabbed the legit `Silo S03E08 Gray Goo 2160p ATVP WEB-DL Atmos DV` — imported,
-hasFile=true.
+Re-search then grabbed the legit `Silo S03E08 Gray Goo 2160p ATVP WEB-DL Atmos DV` — verified
+mid-download at 31%/12 MB/s (a real video stream, not a stub), import pending.
 
 Noticed in passing: `linuxserver_readarr-1` has been Exited for 2 weeks (pinned/retired anyway)
 and a stray `firefox-app-1` container is also stopped — neither touched.
