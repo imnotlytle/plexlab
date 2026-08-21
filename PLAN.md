@@ -1178,3 +1178,26 @@ before theorizing — the port number was the whole answer.
 
 **Standing rule this creates: when a service is rebound to localhost for security, grep the other
 services' configs for the old LAN-IP URL.** Sonarr/Radarr checked — no other references to :8191.
+
+### Nightly auto-updates + the Silo exe malware, closed out (2026-08-21)
+**Auto-updates:** Diun only ever *notified*. Now `scripts/auto-update-containers.sh` runs nightly
+at 04:45 (after the 04:15 backup) via root cron. Three tiers: SAFE (books/monitoring/tunnels/
+adguard/shim — always), TIMING (plex + *arrs + overseerr — only when Plex has **zero active
+sessions**, checked via API, fail-safe skip if the check errors), MANUAL (vpn-qbittorrent pair —
+kill-switch needs human verification; dispatcharr — pre-1.0 and feeds live TV; readarr — pinned).
+Logs to `_backups/auto-update.log` (self-trims), prunes dangling images, warns about exited
+containers. First live run updated homepage/tunnels/adguard/media; DNS, Plex, and all four public
+URLs verified after. Uptime-kuma remains the failure alarm for anything a bad update breaks.
+
+**Silo kept grabbing exe malware** (fake "MULTI ... HiggsBoson" releases on public indexers —
+same scam as the S03E05 catch). Fixed in two layers:
+1. **qBittorrent now refuses executable files inside any torrent** ("excluded file names":
+   *.exe *.scr *.lnk *.bat *.cmd *.msi *.pif *.com *.vbs *.js). A torrent that is only an exe
+   downloads nothing, stalls, and Sonarr fails over. This protects every grab, not just Silo.
+2. Sonarr release profile "Block fake-release markers" (ignored: HiggsBoson) so the known fake
+   group is never grabbed at all. Add future fake group names here as they appear.
+Re-search then grabbed the legit `Silo S03E08 Gray Goo 2160p ATVP WEB-DL Atmos DV` — imported,
+hasFile=true.
+
+Noticed in passing: `linuxserver_readarr-1` has been Exited for 2 weeks (pinned/retired anyway)
+and a stray `firefox-app-1` container is also stopped — neither touched.
