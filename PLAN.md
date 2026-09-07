@@ -1201,3 +1201,45 @@ mid-download at 31%/12 MB/s (a real video stream, not a stub), import pending.
 
 Noticed in passing: `linuxserver_readarr-1` has been Exited for 2 weeks (pinned/retired anyway)
 and a stray `firefox-app-1` container is also stopped — neither touched.
+
+### The real outage: qBittorrent dead 4 days, nothing downloading (2026-09-07)
+Reported as "Silo didn't pull episode 10". The episode was a symptom. **qBittorrent had been
+Exited(255) since 2026-09-03** — Sonarr health read *"All download clients are unavailable"* and
+nothing had downloaded for four days (last grab 09-03; S03E10 aired 09-04).
+
+**Why it died and stayed dead:** qBittorrent runs with `network_mode: service:wireguard-pia`, so
+it lives *inside* the VPN container's network namespace. When the VPN container restarted, that
+namespace was replaced, qBittorrent exited 255, and **Docker's restart policy could not recover it
+— the netns it wants no longer exists.** Nothing looked wrong from outside: wireguard-pia still
+reported healthy and still published :8080, so the port was open with nothing behind it.
+
+**Fix (no sudo needed):** the watchdog now lives at the top of `scripts/qbit-port-sync.sh`, which
+an existing root cron already runs every 5 minutes. If qBittorrent is not `running` it recreates
+it, then **verifies the kill-switch before letting it seed** — if qbit's exit IP ever equals the
+WAN IP it stops the container and logs `KILL-SWITCH FAIL` rather than leaking. Tested by stopping
+qbittorrent: detected, restarted, kill-switch confirmed (179.61.197.66 vs WAN 135.131.49.177).
+
+Recovered: Sonarr and Radarr both test 200 to qBittorrent, health issues 0, Silo S03E10 Troy
+2160p Atmos DV downloading, plus Futurama S11E07 and two stuck items completed. Of 192 "missing"
+episodes only 3 aired in the last 30 days — the rest is old unavailable back-catalogue.
+
+**Note on the nightly auto-updater: its `WARNING not running` check would have caught this on day
+one, but the cron was never installed** (the sudo step was never run), so it has only ever run
+when triggered by hand. That gap is exactly what cost four days.
+
+### Plex reported the wrong version to plex.tv — Tautulli was overwriting it (2026-09-07)
+Mobile/remote clients showed *"Live TV requires Plex Media Server 1.24.4 or higher. patplex v2 is
+currently running v2.17.2."* That was NOT a client cache issue (earlier guess, wrong): plex.tv
+genuinely stored `v2.17.2` for this server. **v2.17.2 is Tautulli's version.** The plex.tv device
+record carrying the server's clientIdentifier (`8f83ec44…`) was named `26f627292c47 (Tautulli)` —
+matching Tautulli's `X-Plex-Device-Name` format `'{PLATFORM_DEVICE_NAME} ({PRODUCT})'`.
+
+Causation proven by experiment: stop Tautulli + restart Plex → plex.tv shows `patplex v2 |
+1.43.3.10896`; start Tautulli → within 90s it reverts to `26f627292c47 (Tautulli) | v2.17.2`.
+
+**Not yet fixed.** Setting `pms_client_id` to a fresh UUID (Tautulli reads
+`PMS_CLIENT_ID or PMS_UUID` in `http_handler.py:50`) persisted in config.ini but did NOT stop the
+overwrite, so another code path is sending the server's identifier. Impact is limited: remote
+streaming works (public plex.direct URL verified 200 serving the correct version) — only the
+Live TV version gate in remote clients is affected. Next steps: trace Tautulli's plex.tv calls in
+its log, or file upstream.
