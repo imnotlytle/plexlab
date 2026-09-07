@@ -1243,3 +1243,32 @@ overwrite, so another code path is sending the server's identifier. Impact is li
 streaming works (public plex.direct URL verified 200 serving the correct version) — only the
 Live TV version gate in remote clients is affected. Next steps: trace Tautulli's plex.tv calls in
 its log, or file upstream.
+
+### RESOLVED: Tautulli was authenticating to plex.tv as the Plex server (2026-09-07)
+**Root cause, found in Tautulli's source** (`plexpy/plextv.py`, PlexTV.__init__):
+`self.token = plexpy.CONFIG.PMS_TOKEN` — Tautulli made every plex.tv call using the **Plex Media
+Server's own token**. plex.tv attributes a request to whichever device owns the token, so it
+treated Tautulli as the server and overwrote the server's device record with Tautulli's
+`X-Plex-Device-Name` / `X-Plex-Version` headers → `26f627292c47 (Tautulli)` / `v2.17.2`. Remote
+clients then failed Live TV's version gate ("requires 1.24.4 or higher... running v2.17.2").
+
+That is why the earlier `pms_client_id` fix did nothing: **plex.tv keys off the token, not the
+client identifier.** Verified — Tautulli was confirmed running with a unique client id
+(`2d90f24d…`) and still hijacked the record.
+
+**Fix: gave Tautulli its own account token** via Plex's PIN flow (`POST /api/v2/pins`, code
+entered by Pat at plex.tv/link — no password ever handled here), issued against Tautulli's own
+client identifier and device name. Old server token preserved in
+`config.ini.bak.pretoken.*` for one-line rollback.
+
+Pre-flight checked the new token before swapping: local PMS `/identity`, `/library/sections`,
+`/status/sessions` all 200; plex.tv shows the owned server and 10 shared users. After the swap
+Tautulli reports `get_server_identity`, `get_activity` and `get_users` (12) all success, no errors.
+
+**Verified fixed:** plex.tv held `patplex v2 | 1.43.3.10896-cb3ebc72d` across four checks over
+five minutes with Tautulli running — previously it reverted within 90 seconds.
+
+Also confirmed this session: nightly auto-update cron now installed at
+`/etc/cron.d/auto-update-containers` (Pat ran the sudo step; `ssh -t` was needed so sudo could
+prompt for a password). Silo S03E10 imported (`hasFile: True`), Live TV DVR survived the Plex
+restarts, box at 3.1 GB free.
