@@ -1272,3 +1272,26 @@ Also confirmed this session: nightly auto-update cron now installed at
 `/etc/cron.d/auto-update-containers` (Pat ran the sudo step; `ssh -t` was needed so sudo could
 prompt for a password). Silo S03E10 imported (`hasFile: True`), Live TV DVR survived the Plex
 restarts, box at 3.1 GB free.
+
+### Post-power-outage full health sweep (2026-09-07)
+Pat lost power and removed the NAS as the router's DNS server, so every `.home` name stopped
+resolving. **Nothing was actually broken** — AdGuard was healthy the whole time; clients just
+weren't being pointed at it. All 15 rewrites verified resolving (plex/overseerr/sonarr/radarr/
+prowlarr/readarr/qbit/tautulli/maintainerr/calibre/books/abs/adguard/nas/iptv → 192.168.68.56),
+external forwarding works, and ad blocking still active (doubleclick.net → null).
+**Router DNS to re-add: 192.168.68.56** (set it as the DHCP DNS server in the Deco app, per-client,
+so AdGuard sees each device).
+
+Swept everything: 24 of 26 containers up (the two down are deliberate — retired `readarr`, stray
+`firefox-app-1`); all 18 LAN services answering; all 4 public tunnel URLs answering; VPN
+kill-switch verified (qbit exits 179.61.197.66, WAN 135.131.49.177); Sonarr/Radarr/Prowlarr health
+all clean; 0 benched indexers; Plex 3 libraries + Live TV DVR alive; nightly config backups current
+(3 most recent present, 54 GB retained).
+
+Two findings worth recording:
+- **uptime-kuma, vaultwarden and homepage publish on the LAN IP only, not 127.0.0.1** — health
+  checks against localhost return 000 and look dead when they are fine. Always probe these three
+  at 192.168.68.56 (:3001, :8222, :3003 respectively).
+- Prowlarr warned *"Applications unavailable... Readarr"* because Readarr has been stopped 4 weeks
+  (retired upstream, deliberately pinned/off). Set Prowlarr's Readarr application `syncLevel` to
+  `disabled` rather than deleting it — config retained if Readarr is ever revived. Health now 0.
