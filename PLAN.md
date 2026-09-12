@@ -1331,3 +1331,8 @@ Could not confirm the fix end-to-end — the TV went idle and stopped querying, 
 query exists to observe. AdGuard accepted the rule with no parse errors. **Pat to test voice.**
 Revert = delete that line from `user_rules` (backups in the conf dir), or run the script logic in
 reverse.
+
+**CONFIRMED 2026-09-12:** Pat tested after the rule went in — voice recognition works again. So
+`us.nextlgsdp.com` IS load-bearing for webOS voice, not just ACR telemetry. Worth knowing because
+every public LG blocklist includes it with no such warning. LG ad platform (`lgsmartad.com`) and
+`lgtvcommon.com` remain blocked with no ill effect.
