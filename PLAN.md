@@ -1295,3 +1295,39 @@ Two findings worth recording:
 - Prowlarr warned *"Applications unavailable... Readarr"* because Readarr has been stopped 4 weeks
   (retired upstream, deliberately pinned/off). Set Prowlarr's Readarr application `syncLevel` to
   `disabled` rather than deleting it — config retained if Readarr is ever revived. Health now 0.
+
+### LG C5 voice recognition vs AdGuard — narrow allow for LG's SDP (2026-09-12)
+Voice stopped working on the C5 after AdGuard went network-wide. Diagnosed from AdGuard's query
+log rather than guessing at LG's domain list.
+
+**Identifying the TV mattered.** Historical log data for `.63` showed Samsung ACR *and* Android TV
+*and* LG domains — impossible for one device. Before Pat reserved the IP, DHCP had handed `.63` to
+different devices over time, so the old data was a blend. Filtering to the **last 6 hours only**
+gave a clean picture: `.63` is the C5 (lge.com, Netflix, Amazon Video, Hue discovery, and
+`ueiwsp.com` = Universal Electronics, the remote vendor).
+
+**The signal: `us.nextlgsdp.com` blocked 449 times in ~90 minutes** — roughly every 12 seconds.
+That retry rate is a device failing and re-asking, not routine telemetry. Everything else blocked
+for the TV is genuine junk and was left alone: Netflix telemetry (`nrdp.logs`, `ichnaea`,
+`customerevents`), `unagi-na.amazon.com`, doubleclick, `us.info.lgsmartad.com` (LG's actual ad
+platform), `aic.fooddelivery.lgtvcommon.com`.
+
+`nextlgsdp` is LG's Service Delivery Platform — dual-purpose: part of LG's ACR tracking *and* a
+service backend. Research confirmed the ACR/tracking role but did NOT document a voice dependency
+(https://gist.github.com/mcrumm/972070dfe67d44ed61c4247563cbf07c ,
+https://www.xda-developers.com/ran-pi-hole-for-week-and-was-disturbed-by-how-much-my-tv-phones-home/),
+so this is a strong hypothesis being tested, not an established fact.
+
+**Minimal change, scoped to one device:**
+`@@||us.nextlgsdp.com^$client=192.168.68.63` — allowed for the C5 only; still blocked for every
+other client on the network (verified: a non-TV lookup still returns `::`). DNS, external
+resolution and ad blocking all re-verified healthy after the restart.
+
+New reusable `scripts/add-adguard-rule.sh`, modelled on `add-adguard-rewrite.sh`: does the edit
+inside a throwaway root container with the conf dir mounted (the admin user cannot write the
+root-owned YAML), and stops AdGuard first because it rewrites its whole config on shutdown.
+
+Could not confirm the fix end-to-end — the TV went idle and stopped querying, so no post-rule
+query exists to observe. AdGuard accepted the rule with no parse errors. **Pat to test voice.**
+Revert = delete that line from `user_rules` (backups in the conf dir), or run the script logic in
+reverse.
