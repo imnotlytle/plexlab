@@ -1370,3 +1370,28 @@ Fix: `The Passage.m4b` moved into its own `The Passage/` folder → rescan → 1
 left a stale author-level entry (ABS reported `isMissing: false` despite the path no longer being
 a book), deleted by id → **167 items, exactly matching 167 book folders on disk, zero missing.**
 Swept every other author folder for the same mixed layout: only this one was affected.
+
+### Nest thermostat "broken by AdGuard" — AdGuard was not the cause (2026-09-13)
+Investigated before changing anything. The thermostat is `192.168.68.50`, MAC `3c:31:74:e7:a1:d6`
+(OUI = Google, Inc.). **Nothing was blocked for it.** In the last 16 hours it made 144 queries —
+`trouter-us.production.nest.com` and `clients3.google.com`, every ~15 min, **all resolved**, most
+recent minutes before checking. Tested Nest's wider domain set directly too: nest.com,
+frontdoor/time/trouter.nest.com, home.googleapis.com, googlehomefoyer, oauth2, accounts, NTP — all
+resolve. The only two that failed (`czfe.nest.com`, `weave.nest.com`) return NXDOMAIN from
+**1.1.1.1 as well** — they are dead legacy endpoints, not blocks.
+
+**DHCP churn bit again — third time.** The *full-history* log for `.50` shows iCloud, Facebook and
+MS Teams traffic: that IP was a phone before. Only the recent window is the Nest. Same trap as the
+LG TV (`.63`) earlier. **Rule: on this LAN, only ever diagnose from a recent time window, or by
+MAC.**
+
+Pat asked for a whitelist anyway, so rather than guess at domains, the device is now **exempt from
+filtering entirely, keyed to its MAC** (`clients.persistent`, `filtering_enabled: false`) — a
+thermostat has no ads to block, so this costs nothing and rules AdGuard out permanently. Keyed to
+MAC specifically so DHCP reassignment cannot transfer the exemption to a phone. Script saved as
+`scripts/adguard-exempt-client.sh`; it verifies DNS after writing and **auto-rolls-back** if
+AdGuard fails to come up, since a malformed YAML would take DNS down house-wide. Verified after:
+entry active, `plex.home`/`google.com`/`abs.patplex.net` resolving, doubleclick still blocked.
+
+**Actual cause still unknown** — most likely the power outage (Nest thermostats run off the HVAC
+C-wire and can drop into a low-battery state after one). Needs the real symptom from Pat.
