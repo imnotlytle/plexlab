@@ -1350,3 +1350,23 @@ re-verified unchanged.
 login succeeds over `https://abs.patplex.net`, library visible, 166 books listed. ABS 2.36.0.
 
 Note ABS tracks listening progress per user, so his progress will not collide with Pat's.
+
+### ABS: two friend accounts + a book ABS could not see (2026-09-12)
+Added `cristian` and `amanda` (both type `user`): download allowed for offline listening on
+phones, update/delete/upload denied. Both logins verified **through the public URL**, which is the
+path their phones take — not just locally.
+
+**"New books not showing up" was one book, and the cause is a rule worth remembering.**
+A recursive diff of `/volume1/Media/Audio/merged` against the ABS API found exactly one gap:
+`Justin Cronin/The City of Mirrors`. A plain rescan did NOT fix it.
+
+Cause: the `Justin Cronin` folder held **both** a loose `The Passage.m4b` **and** the
+`The City of Mirrors/` subfolder. ABS treats a folder containing audio as *one book* and does not
+descend, so it indexed the whole author folder as the single book "The Passage" and never saw the
+subfolder. (This is the flip side of the already-documented "a folder = a book" rule — and it was
+self-inflicted: PLAN records Pat hand-moving The Passage earlier.)
+
+Fix: `The Passage.m4b` moved into its own `The Passage/` folder → rescan → 166 → 168 items. That
+left a stale author-level entry (ABS reported `isMissing: false` despite the path no longer being
+a book), deleted by id → **167 items, exactly matching 167 book folders on disk, zero missing.**
+Swept every other author folder for the same mixed layout: only this one was affected.
