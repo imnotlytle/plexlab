@@ -1336,3 +1336,17 @@ reverse.
 `us.nextlgsdp.com` IS load-bearing for webOS voice, not just ACR telemetry. Worth knowing because
 every public LG blocklist includes it with no such warning. LG ad platform (`lgsmartad.com`) and
 `lgtvcommon.com` remain blocked with no ill effect.
+
+### Audiobookshelf: second user for a friend (2026-09-12)
+Cristian wants ABS on Android. Nothing to build — ABS is already public via the Cloudflare tunnel
+at `abs.patplex.net`, so this was just a user account.
+
+Created `cristian` (type `user`, not admin) with deliberately narrowed permissions:
+`download: true` (needed for offline listening on a phone), but `update`/`delete`/`upload` all
+false — he can listen and cache, he cannot touch the library. Pat's `imnotlytle` root account
+re-verified unchanged.
+
+**Verified through the PUBLIC URL, not just locally** — that is the path his phone actually takes:
+login succeeds over `https://abs.patplex.net`, library visible, 166 books listed. ABS 2.36.0.
+
+Note ABS tracks listening progress per user, so his progress will not collide with Pat's.
