@@ -1395,3 +1395,28 @@ entry active, `plex.home`/`google.com`/`abs.patplex.net` resolving, doubleclick 
 
 **Actual cause still unknown** — most likely the power outage (Nest thermostats run off the HVAC
 C-wire and can drop into a low-battery state after one). Needs the real symptom from Pat.
+
+### Radarr "Allowed Hosts is not configured" (2026-09-21)
+Radarr 6.4.4 flagged it. The useful detail from the docs: **the check only fires when
+Authentication Required is not `Enabled`** — restricting hostnames adds nothing once every request
+must authenticate. That is exactly why only Radarr complained:
+`Radarr = DisabledForLocalAddresses` (no login on the LAN — Pat opted out of changing this during
+the security review), while `Sonarr = Enabled` and `Prowlarr = Enabled`.
+
+Set `allowedHosts = localhost,127.0.0.1,192.168.68.56,radarr.home,nas.home` (comma-separated; a
+missing name yields `400 Bad Request (Invalid host)`, so every path that reaches Radarr was
+enumerated first: Prowlarr and Overseerr both use `192.168.68.56:7878`, browsers use `radarr.home`).
+
+**Requires a restart to enforce.** Immediately after the PUT the health warning cleared but
+`Host: evil.attacker.net` still returned 200 — the setting was saved, not applied. After
+restarting the container: all legitimate hostnames 200, unknown hostnames 400. Verified the
+integrations afterwards: Prowlarr→Radarr sync 200, Radarr→qBittorrent 200, Overseerr 200,
+631 movies intact, health 0 issues.
+
+Note when testing from the NAS itself: it resolves via `127.0.0.1` + the ISP's servers, **not**
+AdGuard, so `.home` names fail there. A `000` from the NAS means DNS, not a Radarr rejection —
+test with an explicit `Host:` header instead.
+
+Left alone deliberately: Sonarr and Prowlarr (auth already required, so allowedHosts buys nothing
+and a missed hostname would only risk locking Pat out). The stronger alternative for Radarr is
+setting Authentication Required to `Enabled` to match the other two — offered, not done.
