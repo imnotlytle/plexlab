@@ -1420,3 +1420,31 @@ test with an explicit `Host:` header instead.
 Left alone deliberately: Sonarr and Prowlarr (auth already required, so allowedHosts buys nothing
 and a missed hostname would only risk locking Pat out). The stronger alternative for Radarr is
 setting Authentication Required to `Enabled` to match the other two — offered, not done.
+
+### Media library spreadsheet (2026-09-21)
+Pat wanted one workbook of everything he owns, with watch state and a place to rate.
+`scripts/media-library-pull.py` (Plex + Audiobookshelf -> JSON), `media-library-read-edits.py`
+(pulls his typed ratings back out of an edited .ods), `media-library-build.py` (writes the xlsx).
+No Python on the Windows box and no xlsx lib on the NAS, so the build runs in a throwaway
+`python:3.12-alpine` container with openpyxl — no permanent dependency added anywhere.
+
+Output: `C:\Users\Pat\Documents\My Media Library.xlsx` — Summary / Movies (623) / TV (94) /
+Audiobooks (167) / Letterboxd Import / Rated, Not Owned (22).
+
+**Three corrections worth remembering:**
+1. **Everything from Plex's API is a string.** Writing values straight through made Excel store
+   numbers as text — hence a leading apostrophe on every number, and sorting that ordered "10"
+   before "9". All numerics now go through `num()` and dates through `dt()`; verified by checking
+   `cell.data_type` across every numeric column (0 stray text, bar audiobook *Duel* whose
+   published year is genuinely "1971/2006").
+2. **`TODAY()` is volatile.** 623 rows x 4 formulas each containing it forced a full recalc on
+   every keystroke and made the workbook feel slow. Replaced with a build-time date constant:
+   2,492 formulas, 0 volatile.
+3. **A rating implies it was watched.** Plex's `viewCount` only counts plays on *this* server, so
+   47 films Pat had rated (cinema, or seen before he owned them) showed "Watched? No". Rule is now
+   `watched = plays > 0 OR a rating exists`, applied to TV and audiobooks too.
+
+Ratings merged with priority **Pat's typed edits > Letterboxd export > Plex stars** — his 81
+hand-entered ratings were read back out of the .ods and re-verified after the rebuild (81/81
+carried, 0 missing, 0 value mismatches). Letterboxd's 0.5-5 half-star scale throughout, since
+whole numbers could not express his 3.5s and 4.5s.
