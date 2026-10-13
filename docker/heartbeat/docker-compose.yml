@@ -1,0 +1,20 @@
+# Heartbeat to Healthchecks.io — a dead-man's switch for "is the NAS alive?"
+#
+# The NAS cannot report its own power loss (it's off), so this works the other way round: it pings
+# an external URL every 5 minutes, and Healthchecks.io emails Pat when the pings STOP — and again
+# when they resume. That covers power loss, a hung/crashed NAS, and home-internet outages alike
+# (from outside they all look the same: "the NAS went quiet").
+#
+# Container rather than cron: no sudo needed to install, auto-starts after a reboot via the
+# restart policy, and lives in this repo like everything else.
+#
+# HC_URL (the check's ping URL) lives in .env, gitignored — anyone holding it can fake check-ins.
+services:
+  heartbeat:
+    image: curlimages/curl:latest
+    container_name: heartbeat
+    restart: unless-stopped
+    env_file: .env
+    entrypoint: ["/bin/sh", "-c",
+      "while true; do curl -fsS -m 10 --retry 3 -o /dev/null \"$$HC_URL\" || echo \"$$(date) ping failed\"; sleep 300; done"]
+    mem_limit: 16m

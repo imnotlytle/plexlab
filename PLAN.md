@@ -1460,3 +1460,12 @@ failure it reconnects (up to 3x, since PIA assigns a random server and some refu
 and syncs the new port. 20-min cooldown prevents restart storms. Tested by downing wg0: healed in
 <90s. Naked Gun 2½ also needed a manual import — release named "Naked Gun 2" (no ½), so Radarr
 blocked the auto-match.
+
+### NAS power-loss / offline alarm (2026-10-12)
+A NAS can't report its own power loss, so this is a dead-man's switch: `docker/heartbeat` (tiny
+curl container, `restart: unless-stopped`) pings Healthchecks.io every 5 min; Healthchecks emails
+Pat when pings stop (period 5 / grace 10 => ~15 min to alert) and again when they resume. Covers
+power loss, a hung NAS, and home-internet outages alike — indistinguishable from outside.
+Container rather than cron: no sudo, auto-starts after reboot, repo-managed. Ping URL in
+`/volume1/docker/heartbeat/.env` (600, gitignored). Email path tested via the `/fail` signal
+followed by a normal ping (down + recovery emails).
