@@ -34,6 +34,54 @@ if [ "$STATE" != "running" ]; then
     exit 0    # let it settle; the next run in 5 min syncs the port
 fi
 
+# 1b. TUNNEL WATCHDOG (added 2026-10-12): qBittorrent running is not enough — the tunnel itself
+#     can die while both containers stay "Up". That happened: PIA's server stopped answering,
+#     thrnz's port-forward script exited with "Fatal error", wireguard-pia went unhealthy, and
+#     every torrent sat at "stalled, no connections" for ~3 weeks (last import 2026-09-22) while
+#     the check above saw nothing wrong. Now: if the VPN is unhealthy OR qbit has no egress,
+#     reconnect (PIA assigns a random server per connect, so a retry also fixes servers that
+#     refuse port-forwarding), then recreate qbit into the new namespace.
+#     A 20-minute cooldown stops a genuinely-down PIA from causing a restart storm.
+HEALTH=$(docker inspect -f '{{.State.Health.Status}}' wireguard-pia 2>/dev/null)
+EGRESS=$(docker exec qbittorrent curl -s -m 15 -o /dev/null -w '%{http_code}' \
+         https://1.1.1.1/cdn-cgi/trace 2>/dev/null)
+MARK=/volume1/docker/_backups/.vpn-heal-last
+if [ "$HEALTH" = "unhealthy" ] || [ "$EGRESS" != "200" ]; then
+    LAST=$(cat "$MARK" 2>/dev/null || echo 0)
+    NOW=$(date +%s)
+    if [ $((NOW - LAST)) -lt 1200 ]; then
+        echo "$(date '+%F %T') tunnel bad (health=$HEALTH egress=$EGRESS) — in cooldown, skipping"
+        exit 0
+    fi
+    echo "$NOW" > "$MARK"
+    echo "$(date '+%F %T') TUNNEL DOWN (health=$HEALTH egress=$EGRESS) — reconnecting VPN"
+    cd "$STACK" || exit 1
+    for i in 1 2 3; do
+        docker compose restart wireguard-pia >/dev/null 2>&1
+        sleep 50
+        if docker logs wireguard-pia --since 60s 2>&1 | grep -q "Forwarding on port"; then
+            echo "$(date '+%F %T') reconnect $i: port forwarding OK"
+            break
+        fi
+        echo "$(date '+%F %T') reconnect $i: no port forward on this server, retrying"
+    done
+    docker compose up -d --force-recreate qbittorrent >/dev/null 2>&1
+    sleep 25
+    VPNIP=$(docker exec qbittorrent curl -s -m 20 https://ipinfo.io/ip 2>/dev/null)
+    WANIP=$(curl -s -m 20 https://ipinfo.io/ip 2>/dev/null)
+    if [ -z "$VPNIP" ]; then
+        echo "$(date '+%F %T') !! still no egress after reconnect — will retry after cooldown"
+        exit 1
+    fi
+    if [ "$VPNIP" = "$WANIP" ]; then
+        echo "$(date '+%F %T') !! KILL-SWITCH FAIL after reconnect — stopping qbittorrent"
+        docker stop qbittorrent >/dev/null 2>&1
+        exit 1
+    fi
+    echo "$(date '+%F %T') tunnel restored (qbit exits via $VPNIP, wan is $WANIP)"
+    # fall through: sync the (probably new) forwarded port right away
+fi
+
 # Credentials come from a gitignored file on the NAS, so this script is safe in a public repo.
 CREDS=${CREDS:-/volume1/docker/scripts/.creds}
 [ -f "$CREDS" ] && . "$CREDS"

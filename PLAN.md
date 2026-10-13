@@ -1448,3 +1448,15 @@ Ratings merged with priority **Pat's typed edits > Letterboxd export > Plex star
 hand-entered ratings were read back out of the .ods and re-verified after the rebuild (81/81
 carried, 0 missing, 0 value mismatches). Letterboxd's 0.5-5 half-star scale throughout, since
 whole numbers could not express his 3.5s and 4.5s.
+
+### VPN tunnel silently dead ~3 weeks; tunnel watchdog added (2026-10-12)
+PIA's server stopped answering, thrnz's port-forward script exited "Fatal error", and every torrent
+stalled — last imports Radarr 09-18, Sonarr 09-22. Both containers stayed "Up", so the Sep-07
+watchdog (checks only that qbittorrent is running) saw nothing. Worse: with the wg0 interface
+forced down, wireguard-pia's own healthcheck still reported **healthy**, so health alone is not
+enough. `qbit-port-sync.sh` now also tests egress from inside qbit's netns (Cloudflare trace); on
+failure it reconnects (up to 3x, since PIA assigns a random server and some refuse port-forwarding
+— the first reconnect today landed on one), recreates qbittorrent, re-verifies the kill-switch,
+and syncs the new port. 20-min cooldown prevents restart storms. Tested by downing wg0: healed in
+<90s. Naked Gun 2½ also needed a manual import — release named "Naked Gun 2" (no ½), so Radarr
+blocked the auto-match.
