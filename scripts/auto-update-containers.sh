@@ -7,7 +7,7 @@
 #             an inconvenience, not an outage: tautulli, maintainerr, books stack, bazarr, caddy,
 #             homepage, uptime-kuma, vaultwarden, flaresolverr, diun, both cloudflared tunnels,
 #             adguard, and the nginx plex-shim.
-#   TIMING  — media stack (plex/sonarr/radarr/prowlarr/overseerr): updated ONLY when Plex has
+#   TIMING  — media stack (plex/sonarr/radarr/prowlarr/seerr): updated ONLY when Plex has
 #             zero active sessions, so an update never kills someone's stream. Skipped nights
 #             are logged and retried the next night.
 #   MANUAL  — never touched here. vpn-qbittorrent (kill-switch must be re-verified by hand after
@@ -68,11 +68,11 @@ elif [ "$SESS" -gt 0 ]; then
     echo "MEDIA: $SESS active session(s) — skipping media stack tonight"
 else
     cd /volume1/docker/media || exit 0
-    before=$(docker compose images -q plex sonarr radarr prowlarr overseerr 2>/dev/null | sort)
-    docker compose pull -q plex sonarr radarr prowlarr overseerr 2>/dev/null
-    docker compose up -d --no-deps plex sonarr radarr prowlarr overseerr >/dev/null 2>&1
-    after=$(docker compose images -q plex sonarr radarr prowlarr overseerr 2>/dev/null | sort)
-    [ "$before" != "$after" ] && echo "UPDATED: media stack (plex/arrs/overseerr)"
+    before=$(docker compose images -q plex sonarr radarr prowlarr seerr 2>/dev/null | sort)
+    docker compose pull -q plex sonarr radarr prowlarr seerr 2>/dev/null
+    docker compose up -d --no-deps plex sonarr radarr prowlarr seerr >/dev/null 2>&1
+    after=$(docker compose images -q plex sonarr radarr prowlarr seerr 2>/dev/null | sort)
+    [ "$before" != "$after" ] && echo "UPDATED: media stack (plex/arrs/seerr)"
     # readarr deliberately absent: pinned to a retired tag, and 'up -d' would resurrect a
     # container that may have been intentionally stopped.
 fi

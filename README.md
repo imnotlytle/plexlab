@@ -73,7 +73,7 @@ inbound holes. Four hostnames are published; everything else is LAN-only.
 
 | Service | URL | Purpose |
 |---|---|---|
-| Overseerr | `overseerr.patplex.net` | Movie/TV requests for shared Plex users |
+| Seerr (shown as "Overseerr") | `overseerr.patplex.net` | Movie/TV requests for shared Plex users — migrated from Overseerr 2026-10-18 |
 | Audiobookshelf | `abs.patplex.net` | Audiobook library, 148 books, ~2,100 hours |
 | Calibre-Web | `books.patplex.net` | Ebook library + OPDS for e-readers |
 | Shelfmark | `shelfmark.patplex.net` | Book search/acquire, feeds both libraries |

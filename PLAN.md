@@ -1469,3 +1469,33 @@ power loss, a hung NAS, and home-internet outages alike — indistinguishable fr
 Container rather than cron: no sudo, auto-starts after reboot, repo-managed. Ping URL in
 `/volume1/docker/heartbeat/.env` (600, gitignored). Email path tested via the `/fail` signal
 followed by a normal ping (down + recovery emails).
+
+### Overseerr -> Seerr migration (2026-10-18)
+Overseerr is discontinued (no updates or security patches); **Seerr** is the official merged
+successor of Overseerr + Jellyseerr (https://docs.seerr.dev/migration-guide/). Migrated in place
+so users saw nothing change:
+
+- Image `linuxserver/overseerr` (container `DefiantJazz`) -> `ghcr.io/seerr-team/seerr:latest`
+  (container `seerr`, compose service `seerr`). Overseerr was already on v1.35.0, the latest, a
+  migration prerequisite. Seerr landed on v3.5.0.
+- **Same config folder** (`/volume1/Config/overseerr`), now mounted at `/app/config` (the official
+  image's path; linuxserver used `/config`). Already owned by UID 1000 = the image's `node` user,
+  so no chown was needed — which also keeps a rollback to linuxserver clean.
+- **`init: true` is required** — the official image ships no init process. No PUID/PGID/`user:`.
+- Same host network + port 5055, so the Cloudflare tunnel, uptime-kuma, and Radarr's
+  allowedHosts all needed no change.
+- Migration ran automatically on first start ("Overseerr to Seerr migration completed
+  successfully", then settings migrators 0001-0008).
+
+**Verified identical:** 10 users, 134 requests (90 approved / 22 processing / 68 available) before
+and after; public site + API answering; Radarr / Radarr-4K / Sonarr / Sonarr-4K test calls 200;
+Plex libraries listed; a recently-added Plex scan ran with 0 errors.
+
+**The migration renames the app title to "Seerr".** Set `applicationTitle` back to `Overseerr`
+(the original, read from the backup) so users still see the old name. The full-settings POST is
+rejected with 400 — send only `{"applicationTitle": ...}`. The logo is Seerr's; that is not
+configurable.
+
+Backup: `_backups/overseerr-pre-seerr-20261018-123529.tar.gz` (stopped first; db + WAL together).
+Rollback = stop seerr, restore that tar, put the old linuxserver service block back.
+`auto-update-containers.sh` now updates `seerr` instead of `overseerr`.

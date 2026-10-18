@@ -75,17 +75,25 @@ services:
       - /volume1/Media/Audio:/Audio
       - /volume1/Media/temp/downloads:/downloads
 
-  overseerr:
-    image: linuxserver/overseerr:latest
-    container_name: DefiantJazz
+  # Seerr — the merged successor to Overseerr + Jellyseerr; Overseerr is discontinued (no updates
+  # or security patches). Migrated in place 2026-10-18 from linuxserver/overseerr (DefiantJazz):
+  # same config folder, same port 5055, same overseerr.patplex.net — users kept their logins and
+  # request history. Migration runs automatically on first start (docs.seerr.dev/migration-guide).
+  seerr:
+    image: ghcr.io/seerr-team/seerr:latest
+    container_name: seerr
     network_mode: host
+    init: true                  # REQUIRED: the official image ships no init process
     restart: always
+    # No PUID/PGID and no `user:` — the official image runs as `node` (UID 1000), which already
+    # owns /volume1/Config/overseerr, and the docs say not to override it.
     environment:
-      - PUID=1000
-      - PGID=10
       - TZ=America/Chicago
+      - PORT=5055
     volumes:
-      - /volume1/Config/overseerr:/config
+      # Same host folder as before; the official image mounts it at /app/config (linuxserver
+      # used /config). Folder name kept as "overseerr" to avoid touching backups/paths.
+      - /volume1/Config/overseerr:/app/config
 
   plex:
     image: linuxserver/plex:latest
