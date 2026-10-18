@@ -1499,3 +1499,21 @@ configurable.
 Backup: `_backups/overseerr-pre-seerr-20261018-123529.tar.gz` (stopped first; db + WAL together).
 Rollback = stop seerr, restore that tar, put the old linuxserver service block back.
 `auto-update-containers.sh` now updates `seerr` instead of `overseerr`.
+
+### Auto-pull new releases (2026-10-18)
+- TV was already automatic: all 100 shows `monitored` + `monitorNewItems=all`.
+- **Plex watchlist auto-request already works for Pat** — Seerr's `hasPermission` returns true for
+  ADMIN (`value & ADMIN || ...`), and the watchlist-sync job runs every 10 min. Nothing was being
+  requested only because his watchlist was empty. No change made; friends deliberately excluded.
+- Added Radarr import list **"Trending new releases (TMDb In Theaters)"** — TMDb now-playing
+  (not "Popular", which mixes in trending back-catalogue), min rating 6.5, min 100 votes, English;
+  profile **Compact 1080p** (id 8, ~3-7 GB) to keep disk churn sane — these are speculative grabs,
+  not DV/Atmos keepers; tagged `auto-trending` (tag id 1) so they can be filtered/bulk-removed;
+  `minimumAvailability=released` so cinema-only titles wait for a digital release.
+  `listSyncLevel` left `disabled` — movies are NOT deleted when they rotate off the list.
+  First sync added 26.
+
+**`.home` links "keep breaking" on the PC:** the PIA desktop VPN (`wgpia0`) forces DNS to
+`10.0.0.243` and its leak protection blocks DNS to AdGuard, so `.home` only resolves while PIA is
+off. Fix is on the PC: PIA -> Settings -> Network -> Name Servers -> "Use Existing DNS" (with LAN
+traffic allowed). Not a NAS fault.
