@@ -1517,3 +1517,13 @@ Rollback = stop seerr, restore that tar, put the old linuxserver service block b
 `10.0.0.243` and its leak protection blocks DNS to AdGuard, so `.home` only resolves while PIA is
 off. Fix is on the PC: PIA -> Settings -> Network -> Name Servers -> "Use Existing DNS" (with LAN
 traffic allowed). Not a NAS fault.
+- **No kids' movies** (Pat, same day): list 1 now excludes genres `16|10751` (Animation OR Family).
+  PAW Patrol (the only kids title from the first sync) deleted with `addImportExclusion` so no list
+  can re-add it. List 2 "Trending animation - major studios only" = Theaters + Animation +
+  companies Disney(2) / Pixar(3) / WDAS(6125) / DreamWorks Animation(521) / Illumination(6704) /
+  Sony Pictures Animation(2251) / Warner Bros. Animation(2785).
+  **Radarr passes these to TMDb discover verbatim: `|` = OR, `,` = AND** — verified with
+  /importlist/test (7 studios with `,` = empty; with `|` = results). The first exclusion used `,`
+  and would have excluded only films that were BOTH Animation and Family.
+  List 2 is legitimately empty today (no qualifying major-studio animation in theaters), and Radarr
+  refuses to save an empty list — saved with `?forceSave=true` so it catches the next release.
