@@ -1527,3 +1527,17 @@ traffic allowed). Not a NAS fault.
   and would have excluded only films that were BOTH Animation and Family.
   List 2 is legitimately empty today (no qualifying major-studio animation in theaters), and Radarr
   refuses to save an empty list — saved with `?forceSave=true` so it catches the next release.
+
+### TV voice broke again + "internet feels degraded" — neither was AdGuard (2026-10-25)
+- The `@@||us.nextlgsdp.com^$client=192.168.68.63` rule is intact, but the TV made **zero**
+  nextlgsdp queries in 24h: LG moved its service endpoints to `*.tv.wiselg.com` (aic./us./ngfts.),
+  `us.emp.lgsmartplatform.com`, `connect-client.lgthinq.com` — all resolving, none blocked. Domain
+  switch = firmware update. Only LG-ish blocks: `us.info.lgsmartad.com` (blocked in Sept too, when
+  voice worked) and `prov-lg.alphonso.tv` (ACR tracking). Likely cause: post-update account
+  sign-out / voice agreements reset on the TV (community reports), not DNS.
+- AdGuard health: uncached median 8 ms, p95 33 ms, ~0 queries >1 s, 0 failures across 24h.
+  Upstreams: Cloudflare DoH median 11 ms, Google DoH 21 ms.
+- WAN from the NAS: ~926 Mbps down (4 verified 50 MB streams), ~351 Mbps up, 5-8 ms latency stable
+  under load. qBittorrent idle (0 Mbps). Degradation is device/Wi-Fi side, not the line or DNS.
+- Gotcha: a speed test with `curl -o /dev/null` and no size check "measured" 8.5 Gbps — the
+  requests had failed fast. Always print `%{http_code} %{size_download}`.
