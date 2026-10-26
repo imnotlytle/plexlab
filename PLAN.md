@@ -1541,3 +1541,20 @@ traffic allowed). Not a NAS fault.
   under load. qBittorrent idle (0 Mbps). Degradation is device/Wi-Fi side, not the line or DNS.
 - Gotcha: a speed test with `curl -o /dev/null` and no size check "measured" 8.5 Gbps — the
   requests had failed fast. Always print `%{http_code} %{size_download}`.
+
+### New-release lists gated on IMDb + Rotten Tomatoes (2026-10-25)
+Pat: only new releases with **IMDb > 5.0 AND RT >= 50%** (RT missing -> IMDb alone decides).
+Radarr import lists can only filter on TMDb's rating, so:
+- Both TMDb lists now add candidates **unmonitored, no search-on-add**; TMDb rating gate removed.
+- `scripts/radarr-rating-filter.py`, run hourly by the `rating-filter` container (python:alpine,
+  host network, config files mounted read-only, no sudo): pass -> monitor + search; fail ->
+  delete (files too) + import exclusion so no list re-adds it; no IMDb score yet -> hold
+  unmonitored. Re-checks every run, so a later RT drop also removes a film.
+- Safety: only movies tagged `auto-trending` AND added on/after 2026-10-18 (list creation) are
+  ever touched — Radarr lists never re-tag a movie already in the library, so Pat's own films
+  can't match. Anything requested in Seerr is never deleted; if Seerr can't be reached, the
+  script refuses all deletes.
+- Initial apply removed the 9 failing auto-grabs (72 Hours, Practical Magic 2, Rage of Stars,
+  Soulm8te, The Last House, The Last Sunrise, The Runner, The Whisper Man, UNABOMBER) — via
+  Radarr's 14-day recycle bin, so recoverable. First hourly run then judged the newly-widened
+  candidate pool: +1 monitored, 4 more rejected before downloading anything.

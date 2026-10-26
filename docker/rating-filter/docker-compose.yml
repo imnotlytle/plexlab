@@ -1,0 +1,18 @@
+# Hourly IMDb/RT gate for Radarr's auto-added new releases — see scripts/radarr-rating-filter.py.
+# The TMDb import lists add candidates unmonitored; this decides which ones actually download.
+# Container rather than cron: no sudo, survives reboots, lives in the repo with everything else.
+services:
+  rating-filter:
+    image: python:3.12-alpine
+    container_name: rating-filter
+    restart: unless-stopped
+    network_mode: host        # reaches Radarr (7878) and Seerr (5055) on 127.0.0.1
+    environment:
+      - TZ=America/Chicago
+    volumes:
+      - /volume1/docker/scripts/radarr-rating-filter.py:/app/filter.py:ro
+      - /volume1/Config/Radarr/config.xml:/config/radarr.xml:ro          # API key
+      - /volume1/Config/overseerr/settings.json:/config/seerr-settings.json:ro
+    entrypoint: ["/bin/sh", "-c",
+      "while true; do python /app/filter.py --apply 2>&1 | tail -15; sleep 3600; done"]
+    mem_limit: 64m
